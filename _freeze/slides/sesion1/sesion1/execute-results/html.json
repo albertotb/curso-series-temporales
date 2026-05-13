@@ -1,0 +1,12 @@
+{
+  "hash": "26e0d488552785c9ac70cab96957657a",
+  "result": {
+    "engine": "jupyter",
+    "markdown": "---\ntitle: \"Sesión 1 — Fundamentos y modelos estadísticos\"\nsubtitle: \"Curso de Series Temporales con Python\"\nauthor: \"Alberto Torres\"\ndate: today\ndate-format: \"MMMM YYYY\"\nformat:\n  revealjs:\n    output-file: sesion1.html\n---\n\n\n\n# Bienvenida\n\nObjetivos, contexto y organización de la sesión.\n\n---\n\n## Agenda\n\n1. Conceptos básicos de series temporales hidrometeorológicas\n2. Estacionariedad, tendencia, estacionalidad y ruido\n3. Descomposición STL\n4. Autocorrelación y correlación cruzada\n5. Manejo de outliers y datos faltantes\n6. Introducción a modelos estadísticos (ARIMA, suavizado exponencial)\n7. Funciones de respuesta a impulsos con `Pastas`\n\n---\n\n## ¿Qué es una serie temporal?\n\nUna secuencia de observaciones ordenadas en el tiempo:\n\n$$\n\\{y_t\\}_{t=1}^{T},\\qquad t \\in \\mathbb{N}\n$$\n\nEn hidrología trabajamos típicamente con:\n\n- **Caudales** $Q_t$ (m³/s) — series diarias u horarias\n- **Niveles piezométricos** $h_t$ (m s.n.m.) — series mensuales o diarias\n- **Precipitación** $P_t$ (mm) — series acumuladas\n\n. . .\n\nLas observaciones **no son independientes**: el valor en $t$ depende del pasado.\n\n---\n\n## Ejemplo en Python\n\n::: {#cell-ejemplo-caudal .cell execution_count=1}\n``` {.python .cell-code}\nimport numpy as np\nimport pandas as pd\nimport matplotlib.pyplot as plt\n\nrng = np.random.default_rng(42)\nt = pd.date_range(\"2020-01-01\", periods=365 * 3, freq=\"D\")\nestacional = 5 + 3 * np.sin(2 * np.pi * t.dayofyear / 365)\ntendencia = np.linspace(0, 1, len(t))\nruido = rng.normal(0, 0.5, len(t))\ny = estacional + tendencia + ruido\n\nfig, ax = plt.subplots(figsize=(9, 3))\nax.plot(t, y, color=\"#60AA6B\", lw=0.8)\nax.set_xlabel(\"Fecha\"); ax.set_ylabel(\"Caudal (m³/s)\")\nax.grid(alpha=0.3)\nplt.tight_layout()\n```\n\n::: {.cell-output .cell-output-display}\n![Serie sintética estilo caudal diario](sesion1_files/figure-revealjs/ejemplo-caudal-output-1.png){#ejemplo-caudal width=854 height=278}\n:::\n:::\n\n\n---\n\n## Próximos pasos\n\n- Práctica guiada en `notebooks/sesion1/01_carga_y_exploracion.ipynb`\n- Lectura recomendada: [FPP3 — cap. 2 y 3](https://otexts.com/fpp3/)\n\n# ¡Gracias!\n\nPreguntas y debate\n\n",
+    "supporting": [
+      "sesion1_files\\figure-revealjs"
+    ],
+    "filters": [],
+    "includes": {}
+  }
+}

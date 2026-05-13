@@ -1,0 +1,25 @@
+---
+title: "Sesión 3 — Machine Learning y Deep Learning"
+subtitle: "Curso de Series Temporales con Python"
+author: "Alberto Torres — Komorebi AI"
+date: today
+date-format: "MMMM YYYY"
+format:
+  revealjs:
+    output-file: sesion3.html
+---
+
+# Bienvenida {.dark background-color="#084633"}
+
+De la regresión al Deep Learning para series temporales.
+
+---
+
+## Agenda
+
+1. Reformulación: series temporales → problema de aprendizaje supervisado
+2. Feature engineering: lags, ventanas móviles, descomposición
+3. Modelos tabulares: regresión lineal, Random Forest, Gradient Boosting
+4. Redes recurrentes: RNN, LSTM, GRU
+5. Mención: TCN y Transformers para *forecasting*
+6. Evaluación y *backtesting*

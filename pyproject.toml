@@ -1,0 +1,51 @@
+[project]
+name = "curso-series-temporales"
+version = "0.1.0"
+description = "Curso de series temporales con Python aplicado a hidrología e hidrogeología"
+authors = [
+    { name = "Alberto Torres", email = "alberto.torres@komorebi.ai" },
+]
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    # Core data stack
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scipy>=1.13",
+    "openpyxl>=3.1",            # leer .xlsx
+    # Visualización
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+    "plotly>=5.20",
+    # Series temporales (estadística clásica)
+    "statsmodels>=0.14",
+    "pmdarima>=2.0",
+    "pastas>=1.5",
+    # Machine learning clásico
+    "scikit-learn>=1.4",
+    "xgboost>=2.0",
+    "lightgbm>=4.3",
+    # Deep learning (elegir uno; instalamos ambos como opción durante el curso)
+    "torch>=2.2",
+    # Notebook / interactividad
+    "jupyterlab>=4.1",
+    "ipykernel>=6.29",
+    "ipywidgets>=8.1",
+    # Utilidades
+    "requests>=2.31",
+    "tqdm>=4.66",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.4",
+    "nbstripout>=0.7",
+]
+
+[tool.uv]
+# Reproducibilidad: bloquear versiones en uv.lock
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

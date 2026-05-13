@@ -1,0 +1,84 @@
+---
+title: "Sesión 1 — Fundamentos y modelos estadísticos"
+subtitle: "Curso de Series Temporales con Python"
+author: "Alberto Torres"
+date: today
+date-format: "MMMM YYYY"
+format:
+  revealjs:
+    output-file: sesion1.html
+---
+
+
+
+# Bienvenida
+
+Objetivos, contexto y organización de la sesión.
+
+---
+
+## Agenda
+
+1. Conceptos básicos de series temporales hidrometeorológicas
+2. Estacionariedad, tendencia, estacionalidad y ruido
+3. Descomposición STL
+4. Autocorrelación y correlación cruzada
+5. Manejo de outliers y datos faltantes
+6. Introducción a modelos estadísticos (ARIMA, suavizado exponencial)
+7. Funciones de respuesta a impulsos con `Pastas`
+
+---
+
+## ¿Qué es una serie temporal?
+
+Una secuencia de observaciones ordenadas en el tiempo:
+
+$$
+\{y_t\}_{t=1}^{T},\qquad t \in \mathbb{N}
+$$
+
+En hidrología trabajamos típicamente con:
+
+- **Caudales** $Q_t$ (m³/s) — series diarias u horarias
+- **Niveles piezométricos** $h_t$ (m s.n.m.) — series mensuales o diarias
+- **Precipitación** $P_t$ (mm) — series acumuladas
+
+. . .
+
+Las observaciones **no son independientes**: el valor en $t$ depende del pasado.
+
+---
+
+## Ejemplo en Python
+
+```{python}
+#| label: ejemplo-caudal
+#| fig-cap: "Serie sintética estilo caudal diario"
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(42)
+t = pd.date_range("2020-01-01", periods=365 * 3, freq="D")
+estacional = 5 + 3 * np.sin(2 * np.pi * t.dayofyear / 365)
+tendencia = np.linspace(0, 1, len(t))
+ruido = rng.normal(0, 0.5, len(t))
+y = estacional + tendencia + ruido
+
+fig, ax = plt.subplots(figsize=(9, 3))
+ax.plot(t, y, color="#60AA6B", lw=0.8)
+ax.set_xlabel("Fecha"); ax.set_ylabel("Caudal (m³/s)")
+ax.grid(alpha=0.3)
+plt.tight_layout()
+```
+
+---
+
+## Próximos pasos
+
+- Práctica guiada en `notebooks/sesion1/01_carga_y_exploracion.ipynb`
+- Lectura recomendada: [FPP3 — cap. 2 y 3](https://otexts.com/fpp3/)
+
+# ¡Gracias!
+
+Preguntas y debate

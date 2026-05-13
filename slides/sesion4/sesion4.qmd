@@ -1,0 +1,26 @@
+---
+title: "Sesión 4 — Práctica ML/DL y proyecto final"
+subtitle: "Curso de Series Temporales con Python"
+author: "Alberto Torres — Komorebi AI"
+date: today
+date-format: "MMMM YYYY"
+format:
+  revealjs:
+    output-file: sesion4.html
+---
+
+# Bienvenida {.dark background-color="#084633"}
+
+Implementación end-to-end y caso práctico final.
+
+---
+
+## Agenda
+
+1. Práctica con `scikit-learn`
+2. Práctica con `PyTorch` (LSTM/GRU)
+3. Carga y preparación de datos: lags, ventanas, normalización
+4. Entrenamiento, evaluación e interpretación
+5. **Proyecto final** (1,5 h): pipeline completo
+   - Preprocesamiento → Modelado → Evaluación
+   - Predicción de caudales, niveles piezométricos y/o precipitación

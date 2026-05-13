@@ -1,0 +1,29 @@
+---
+title: "Sesión 2 — Modelos estadísticos y Pastas"
+subtitle: "Curso de Series Temporales con Python"
+author: "Alberto Torres — Komorebi AI"
+date: today
+date-format: "MMMM YYYY"
+format:
+  revealjs:
+    output-file: sesion2.html
+---
+
+# Bienvenida {.dark background-color="#084633"}
+
+Sesión casi 100% práctica.
+
+---
+
+## Agenda
+
+1. Repaso ARIMA / SARIMA
+2. Suavizado exponencial (ETS)
+3. Modelos `Pastas` aplicados a piezometría
+4. Validación cruzada para series temporales
+5. Métricas: RMSE, MAE, NSE, KGE
+6. Comparación de modelos
+
+. . .
+
+Ver `notebooks/sesion2/` para el desarrollo guiado.
