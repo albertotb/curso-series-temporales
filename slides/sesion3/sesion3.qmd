@@ -1,7 +1,7 @@
 ---
-title: "Sesión 3 — Machine Learning y Deep Learning"
+title: "Sesión 3 — Machine Learning clásico y evaluación"
 subtitle: "Curso de Series Temporales con Python"
-author: "Alberto Torres — Komorebi AI"
+author: "Alberto Torres · Komorebi AI"
 date: today
 date-format: "MMMM YYYY"
 format:
@@ -9,17 +9,741 @@ format:
     output-file: sesion3.html
 ---
 
-# Bienvenida {.dark background-color="#084633"}
+```{python}
+#| label: setup-global
+#| echo: false
+import sys, os
+sys.path.insert(0, os.path.abspath("../../notebooks/sesion1"))
+import warnings
+warnings.filterwarnings("ignore")
 
-De la regresión al Deep Learning para series temporales.
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+plt.rcParams.update({
+    "figure.figsize": (9, 3.4),
+    "axes.grid": True,
+    "grid.alpha": 0.3,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "font.size": 11,
+})
+
+import utils_datos as ud
+
+CAUDAL = ud.cargar_caudal_genil().loc["1995":"2020"]
+LLUVIA = ud.cargar_lluvia_genil_diaria(fecha_inicio="1995-01-01", fecha_fin="2020-12-31")
+```
+
+# Bienvenida
+
+**Hoy:** convertir series temporales en problemas supervisados, aplicar Random Forest / XGBoost / LightGBM con `skforecast`, y aprender a evaluar bien.
+
+. . .
+
+- Teoría densa: **3 h** (cinco bloques).
+- Práctica: **1 h 30 min** — features, baseline, RF/XGBoost, backtesting.
 
 ---
 
 ## Agenda
 
-1. Reformulación: series temporales → problema de aprendizaje supervisado
-2. Feature engineering: lags, ventanas móviles, descomposición
-3. Modelos tabulares: regresión lineal, Random Forest, Gradient Boosting
-4. Redes recurrentes: RNN, LSTM, GRU
-5. Mención: TCN y Transformers para *forecasting*
-6. Evaluación y *backtesting*
+1. **De serie a supervisado** — sliding window, feature engineering — *45 min*
+2. **Modelos clásicos de ML** — Ridge, RF, XGBoost, LightGBM — *45 min*
+3. **Predicción multi-paso** — recursive, direct, DirRec, MIMO — *30 min*
+4. **Splits temporales y CV** — TimeSeriesSplit, backtesting — *30 min*
+5. **Métricas hidrológicas** — NSE, KGE, error en pico, probabilísticas — *30 min*
+
+---
+
+# Bloque 1 · De serie a problema supervisado
+
+---
+
+## El truco fundamental
+
+ML clásico necesita pares $(X, y)$. Con una serie $\{y_t\}$ los construimos con una **ventana deslizante**:
+
+| $X$ (features) | $y$ (target) |
+|---|---|
+| $(y_{t-1}, y_{t-2}, \ldots, y_{t-p})$ | $y_t$ |
+
+. . .
+
+```{python}
+#| label: ventana-demo
+#| echo: true
+def crear_features_lag(serie, lags):
+    df = pd.DataFrame({"y": serie})
+    for lag in lags:
+        df[f"lag_{lag}"] = serie.shift(lag)
+    return df.dropna()
+
+q = CAUDAL.dropna()
+X = crear_features_lag(q, lags=[1, 2, 3, 7, 30])
+print(X.head())
+```
+
+---
+
+## Tipos de features para series temporales
+
+**1. Autoregresivas (lags y diferencias)**
+
+- `lag_1`, `lag_7`, `lag_30`...
+- `diff_1 = y_t - y_{t-1}`.
+
+**2. Estadísticos móviles (rolling)**
+
+- `rolling_mean_7`, `rolling_std_30`, `rolling_max_90`...
+
+**3. Calendario**
+
+- Mes, día del año, día de la semana, año hidrológico.
+
+**4. Fourier**
+
+- $\sin(2\pi t / s)$, $\cos(2\pi t / s)$ → estacionalidad continua.
+
+**5. Exógenas**
+
+- Lluvia retardada, ET₀, índices climáticos (NAO).
+
+---
+
+## Rolling features — ejemplo
+
+```{python}
+#| label: rolling-demo
+#| echo: true
+q = CAUDAL.dropna()
+feats = pd.DataFrame({
+    "y": q,
+    "media_7":  q.rolling(7).mean(),
+    "max_30":   q.rolling(30).max(),
+    "std_30":   q.rolling(30).std(),
+}).dropna()
+print(feats.tail(5).round(2))
+```
+
+. . .
+
+```{python}
+#| label: rolling-fig
+#| fig-cap: "Caudal vs media móvil 30 días — la suavización es la fuente del feature"
+ventana = CAUDAL.loc["2014":"2016"].dropna()
+fig, ax = plt.subplots()
+ax.plot(ventana.index, ventana.values, color="#1f6f8b", lw=0.4, alpha=0.6, label="diario")
+ax.plot(ventana.index, ventana.rolling(30).mean(), color="#c2410c", lw=1.6, label="rolling 30d")
+ax.set_ylabel("Q (m³/s)"); ax.legend()
+plt.tight_layout()
+```
+
+---
+
+## Calendario y Fourier
+
+```{python}
+#| label: calendario
+#| echo: true
+def features_calendario(idx):
+    return pd.DataFrame({
+        "mes":   idx.month,
+        "doy":   idx.dayofyear,
+        "dow":   idx.dayofweek,
+        "sin_an": np.sin(2 * np.pi * idx.dayofyear / 365.25),
+        "cos_an": np.cos(2 * np.pi * idx.dayofyear / 365.25),
+    }, index=idx)
+
+cal = features_calendario(CAUDAL.dropna().index[:5])
+print(cal)
+```
+
+. . .
+
+**Tip:** las variables Fourier son más útiles que `mes` para árboles, porque preservan **continuidad** entre diciembre y enero.
+
+---
+
+## Variables exógenas — lluvia retardada
+
+```{python}
+#| label: lluvia-lags
+#| echo: true
+lluvia = LLUVIA.copy()
+df = pd.DataFrame({"caudal": CAUDAL, "lluvia": lluvia})
+for lag in (1, 3, 7, 14, 30):
+    df[f"lluvia_lag{lag}"] = df["lluvia"].shift(lag)
+    df[f"lluvia_acum{lag}d"] = df["lluvia"].rolling(lag).sum().shift(1)
+print(df.dropna().tail(3).round(2))
+```
+
+. . .
+
+**Lluvia acumulada en ventana** suele ser más predictiva que la lluvia puntual del día anterior, especialmente en cuencas reguladas.
+
+---
+
+## El pitfall clásico: fuga de información
+
+> El feature usa **información del futuro** que no estará disponible en producción.
+
+. . .
+
+**Casos típicos:**
+
+- `rolling_mean(window=7, center=True)` — ¡ve 3 días al futuro!
+- Escalador `StandardScaler.fit_transform(X)` en el set completo → la media del test contamina el train.
+- `df['y_smooth'] = df['y'].rolling(30).mean()` y luego usar `y_smooth` como feature.
+
+. . .
+
+**Regla:**
+
+- Rolling **siempre** con `center=False`.
+- Escaladores: `fit` sólo en train, `transform` en test.
+- Si dudas: imagina que estás **dentro** del día $t$ — ¿tendrías el dato?
+
+---
+
+## Resumen Bloque 1
+
+- Una serie temporal se convierte en problema supervisado con **lags + rolling + calendario + exógenas**.
+- La elección de features importa más que el modelo (en ML clásico).
+- **Fuga de información** es el enemigo silencioso.
+
+. . .
+
+En el notebook 01 construirás la matriz de features para el caudal del Genil y un baseline persistencia + regresión lineal.
+
+---
+
+# Bloque 2 · Modelos clásicos de ML
+
+---
+
+## Panorama
+
+```{mermaid}
+flowchart LR
+  L[Linear<br/>Ridge / Lasso] --> RF[Random Forest]
+  RF --> XGB[XGBoost]
+  XGB --> LGB[LightGBM]
+  XGB --> CB[CatBoost]
+  L -.-> BL[(baselines)]
+```
+
+. . .
+
+**Filosofía común:** mismo problema supervisado $X \to y$, distintos *bias-variance tradeoffs* y velocidades.
+
+. . .
+
+- **Lineal regularizado**: bias alto, varianza baja, interpretable.
+- **Bosques aleatorios**: baja varianza vía bagging, no extrapolan.
+- **Gradient Boosting** (XGB / LGB): aprendizaje secuencial, regularización fina.
+
+---
+
+## Baselines (siempre)
+
+Tres baselines que un modelo debe **batir** para ser publicable:
+
+1. **Persistencia**: $\hat y_t = y_{t-1}$.
+2. **Persistencia estacional**: $\hat y_t = y_{t-s}$ (en caudal mensual, $s=12$).
+3. **Climatología**: $\hat y_t = \overline{y_{\,m(t)}}$, la media histórica del mes.
+
+. . .
+
+```{python}
+#| label: baselines
+#| echo: true
+caudal_m = CAUDAL.resample("MS").mean().dropna()
+test = caudal_m.loc["2018":]
+train = caudal_m.loc[:"2017"]
+
+persistencia_s = test.shift(12).combine_first(train.iloc[-12:])
+clim = train.groupby(train.index.month).mean().reindex(test.index.month).values
+
+print("Persistencia anual MAE:", abs(test - persistencia_s.iloc[:len(test)]).mean().round(2))
+print("Climatología     MAE:", abs(test.values - clim).mean().round(2))
+```
+
+---
+
+## Regresión lineal regularizada
+
+$$
+\min_{\beta} \sum_t (y_t - X_t^\top \beta)^2 + \alpha \|\beta\|_{1,2}
+$$
+
+- **Ridge** ($L_2$): bueno con muchas features correlacionadas (lags adyacentes).
+- **Lasso** ($L_1$): selección automática, descarta features.
+- **ElasticNet**: combinación.
+
+. . .
+
+**Por qué lineal sigue siendo relevante:**
+
+- Cuando hay 50 lags + rolling + calendario, `LinearRegression` plana se sobreajusta. Ridge no.
+- Es la baseline justa contra la que comparar el resto.
+- En cuencas reguladas, captura el 60-80% de la varianza.
+
+---
+
+## Random Forest
+
+```python
+RandomForestRegressor(n_estimators=200, max_depth=None,
+                      min_samples_leaf=5, n_jobs=-1)
+```
+
+- **Bagging** de árboles + selección aleatoria de features.
+- **Pros:** robusto, casi sin tuning, da feature importance.
+- **Contras:** **no extrapola** (predice dentro del rango de entrenamiento).
+
+. . .
+
+**Pitfall hidrológico:** si entrenas con datos donde `Q_max = 200 m³/s` y luego viene una crecida de 400, RF te dará 200 (clipping implícito). XGBoost también, pero los modelos lineales sí extrapolan.
+
+---
+
+## Gradient Boosting — XGBoost y LightGBM
+
+Construyen árboles **secuencialmente**, cada uno ajustando los residuos del anterior:
+
+$$
+F_m(x) = F_{m-1}(x) + \nu \cdot h_m(x)
+$$
+
+. . .
+
+- **XGBoost** (2014): estándar de facto en ML competitivo.
+- **LightGBM** (2017): histogram-based, **mucho más rápido** en datasets grandes.
+
+```python
+import lightgbm as lgb
+model = lgb.LGBMRegressor(n_estimators=500, learning_rate=0.05,
+                          num_leaves=31, min_child_samples=20)
+```
+
+. . .
+
+**Hiperparámetros críticos:**
+
+- `n_estimators` + `learning_rate` (el clásico ratio).
+- `max_depth` / `num_leaves` (capacidad).
+- `min_child_samples` (regularización).
+- `subsample`, `colsample_bytree` (estocasticidad).
+
+---
+
+## Interpretabilidad: SHAP
+
+**Shapley Additive Explanations** — descomposición justa de la predicción en contribuciones por feature.
+
+```python
+import shap
+explainer = shap.TreeExplainer(model)
+shap_values = explainer(X_test)
+shap.plots.beeswarm(shap_values)
+```
+
+. . .
+
+**Útil para:**
+
+- Validar que el modelo "piensa" lo que esperamos (lag-1, lluvia reciente → caudal alto).
+- Detectar features inútiles o tramposas.
+- Reportar a clientes técnicos no-ML.
+
+. . .
+
+> SHAP funciona en TODO modelo (KernelExplainer es lento pero universal), pero es **especialmente eficiente** en modelos de árbol.
+
+---
+
+## skforecast — el puente al forecasting
+
+`scikit-learn` no sabe predecir multi-paso. **`skforecast`** lo arregla:
+
+```python
+from skforecast.recursive import ForecasterRecursive
+from lightgbm import LGBMRegressor
+
+forecaster = ForecasterRecursive(
+    regressor=LGBMRegressor(n_estimators=300),
+    lags=[1, 2, 3, 7, 14, 30],
+)
+forecaster.fit(y=caudal_train, exog=lluvia_train)
+preds = forecaster.predict(steps=30, exog=lluvia_test)
+```
+
+. . .
+
+**Ventajas:**
+
+- API uniforme para cualquier regresor sklearn-like.
+- Estrategias multi-paso (recursive, direct, MIMO).
+- Backtesting integrado.
+- Documentación nativa en español (cienciadedatos.net).
+
+---
+
+## Resumen Bloque 2
+
+- **Ridge** como baseline serio.
+- **RF y boosting** ganan cuando hay interacciones no lineales o eventos extremos.
+- **SHAP** para auditar.
+- **`skforecast`** convierte regresores sklearn en forecasters multi-paso.
+
+---
+
+# Bloque 3 · Predicción multi-paso
+
+---
+
+## El problema
+
+Hasta ahora: predecir $y_{t+1}$ dado el pasado. Pero a menudo queremos $y_{t+1}, y_{t+2}, \ldots, y_{t+h}$.
+
+**¿Cómo?** Cuatro estrategias clásicas, cada una con sus pros y contras.
+
+---
+
+## Estrategia 1 — Recursiva
+
+```{mermaid}
+flowchart LR
+  M[Modelo único] --> P1[ŷ_{t+1}]
+  P1 -.feedback.-> M
+  M --> P2[ŷ_{t+2}]
+  P2 -.feedback.-> M
+  M --> P3[ŷ_{t+3}]
+```
+
+. . .
+
+- **Idea:** entrenar un solo modelo de 1 paso. Re-aplicarlo $h$ veces, alimentando sus propias predicciones.
+- **Pros:** un solo modelo; aprovecha la estructura autorregresiva.
+- **Contras:** **acumulación de error** — pequeños errores de paso 1 se amplifican en paso $h$.
+
+---
+
+## Estrategia 2 — Directa
+
+```{mermaid}
+flowchart LR
+  M1[Modelo h=1] --> P1[ŷ_{t+1}]
+  M2[Modelo h=2] --> P2[ŷ_{t+2}]
+  M3[Modelo h=3] --> P3[ŷ_{t+3}]
+```
+
+- **Idea:** un modelo distinto para cada horizonte.
+- **Pros:** no propaga error. Cada modelo optimiza directamente su horizonte.
+- **Contras:** **$h$ modelos** que entrenar; más datos necesarios.
+
+---
+
+## Estrategias 3 y 4 — DirRec y MIMO
+
+**DirRec (Direct-Recursive):** un modelo por horizonte, pero cada uno usa las predicciones anteriores como features adicionales.
+
+. . .
+
+**MIMO (Multiple-Input Multiple-Output):** un modelo que predice **todo el vector** $(\hat y_{t+1}, \ldots, \hat y_{t+h})$ a la vez.
+
+- Captura dependencias entre horizontes.
+- Pide modelos que soporten multi-output nativo (sklearn `MultiOutputRegressor`, redes neuronales).
+
+---
+
+## Comparativa rápida
+
+| Estrategia | #modelos | Error acumulado | Coste cómputo | Cuándo elegir |
+|---|---|---|---|---|
+| Recursive | 1 | Sí | Bajo | $h$ corto, datos pocos |
+| Direct | $h$ | No | Alto | $h$ medio (3–30) |
+| DirRec | $h$ | Bajo | Alto | $h$ medio, no-linealidad |
+| MIMO | 1 | No | Medio | $h$ grande, dependencias entre horizontes |
+
+. . .
+
+**En skforecast:** `ForecasterRecursive`, `ForecasterDirect`, `ForecasterDirectMultiVariate`...
+
+---
+
+# Bloque 4 · Splits temporales
+
+---
+
+## El error #1 — train/test aleatorio
+
+```python
+# MAL
+X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=True)
+```
+
+. . .
+
+Con datos i.i.d. es lo correcto. Con series temporales rompe **causalidad**: el modelo ve futuro durante el entrenamiento.
+
+. . .
+
+> Si un alumno te dice que su modelo de caudal tiene NSE = 0.95 con CV aleatorio, **comprueba siempre** que el split es temporal.
+
+---
+
+## Split temporal simple
+
+```{python}
+#| label: split-fig
+#| fig-cap: "Train/validation/test cronológico"
+fig, ax = plt.subplots(figsize=(10, 1.2))
+ax.barh(0, 75, color="#1f6f8b"); ax.text(37, 0, "train", color="white", ha="center", va="center", fontsize=11, fontweight="bold")
+ax.barh(0, 15, left=75, color="#c2410c"); ax.text(82, 0, "val", color="white", ha="center", va="center", fontsize=11, fontweight="bold")
+ax.barh(0, 10, left=90, color="#16a34a"); ax.text(95, 0, "test", color="white", ha="center", va="center", fontsize=11, fontweight="bold")
+ax.set_xlim(0, 100); ax.set_yticks([]); ax.set_xlabel("Tiempo (%)")
+plt.tight_layout()
+```
+
+- **Train**: entrenamiento.
+- **Val**: hiperparámetros, early stopping.
+- **Test**: sólo se mira **al final**, una vez.
+
+---
+
+## TimeSeriesSplit y expanding window
+
+`sklearn.model_selection.TimeSeriesSplit`:
+
+```python
+from sklearn.model_selection import TimeSeriesSplit
+tscv = TimeSeriesSplit(n_splits=5, test_size=30)
+for fold, (train_idx, test_idx) in enumerate(tscv.split(X)):
+    ...
+```
+
+. . .
+
+```{python}
+#| label: tscv-fig
+#| fig-cap: "TimeSeriesSplit con n_splits=5 — train crece, test fijo"
+fig, ax = plt.subplots(figsize=(10, 3.4))
+colores = plt.cm.Blues(np.linspace(0.5, 1.0, 5))
+for i in range(5):
+    train_end = 40 + i * 10
+    ax.barh(i, train_end, color=colores[i])
+    ax.barh(i, 10, left=train_end, color="#c2410c")
+ax.set_yticks(range(5)); ax.set_yticklabels([f"fold {i+1}" for i in range(5)])
+ax.set_xlim(0, 100); ax.set_xlabel("Tiempo (%)")
+plt.tight_layout()
+```
+
+---
+
+## Backtesting en skforecast
+
+```python
+from skforecast.model_selection import backtesting_forecaster
+
+metricas, predicciones = backtesting_forecaster(
+    forecaster=forecaster,
+    y=caudal,
+    exog=lluvia,
+    initial_train_size=200,
+    steps=12,
+    refit=True,             # reajusta el modelo en cada fold
+    metric="mean_absolute_error",
+)
+```
+
+. . .
+
+**Parámetros críticos:**
+
+- `initial_train_size`: tamaño del primer fold.
+- `steps`: horizonte de cada predicción.
+- `refit`: ¿reajustamos en cada fold (lento, realista) o sólo al principio (rápido, optimista)?
+
+---
+
+## Pitfalls del split temporal
+
+1. **Test demasiado corto**: una racha de buen tiempo o sequía sesga la métrica. Mínimo 1-2 ciclos estacionales.
+2. **Reajustar parámetros mirando el test**: incluso una vez es un sesgo de selección. Si lo haces, llámalo "test final".
+3. **Lluvia futura como exógena**: en backtesting de SARIMAX/ML, ¿usas la lluvia real (información oracular) o un pronóstico realista?
+
+---
+
+# Bloque 5 · Métricas hidrológicas
+
+---
+
+## Por qué métricas hidrológicas
+
+Métricas genéricas (RMSE, MAE, MAPE) son **promedio**. En hidrología nos importa:
+
+- **Picos** (crecidas).
+- **Estiaje** (sequía).
+- **Sesgo** (volumen acumulado para gestión de embalse).
+
+. . .
+
+Las métricas hidrológicas están diseñadas para capturar estos aspectos.
+
+---
+
+## NSE — Nash-Sutcliffe Efficiency
+
+$$
+\mathrm{NSE} = 1 - \frac{\sum_t (o_t - p_t)^2}{\sum_t (o_t - \bar{o})^2}
+$$
+
+. . .
+
+- $1$ = perfecto.
+- $0$ = igual de bueno que predecir la media.
+- $< 0$ = peor que predecir la media.
+
+. . .
+
+**Rangos típicos** (Moriasi et al., 2015):
+
+| NSE | Calidad |
+|---|---|
+| > 0.75 | muy buena |
+| 0.65 – 0.75 | buena |
+| 0.50 – 0.65 | aceptable |
+| < 0.50 | insuficiente |
+
+---
+
+## NSE — la trampa
+
+NSE penaliza enormemente los **errores en picos** (cuadráticos) y es indulgente con el bias en estiaje.
+
+. . .
+
+**Ejemplo:**
+
+- Modelo A: predice perfecto excepto un pico (200 vs 100 m³/s).
+- Modelo B: predice 10% menos en todo, incluido el pico.
+
+A tendrá NSE **peor** que B aunque conceptualmente sea mejor.
+
+. . .
+
+Por eso casi nadie publica solo NSE.
+
+---
+
+## KGE — Kling-Gupta Efficiency
+
+$$
+\mathrm{KGE} = 1 - \sqrt{(r - 1)^2 + (\alpha - 1)^2 + (\beta - 1)^2}
+$$
+
+- $r$ = correlación de Pearson(obs, sim).
+- $\alpha = \sigma_p / \sigma_o$ — ratio de variabilidad.
+- $\beta = \mu_p / \mu_o$ — ratio de sesgo.
+
+. . .
+
+**Ventaja:** descompone el error en **tres causas** independientes. Permite diagnosticar:
+
+- KGE bajo porque $r$ es bajo → fase mal.
+- $\alpha$ lejos de 1 → amplitud mal.
+- $\beta$ lejos de 1 → bias volumen.
+
+---
+
+## Error en pico y PBIAS
+
+**Error en pico:**
+
+$$
+\mathrm{Err}_{pico} = \max(p) - \max(o)
+$$
+
+Importante en gestión de avenidas. Negativo (infraestimación) puede ser **catastrófico**.
+
+. . .
+
+**PBIAS** (porcentaje de sesgo):
+
+$$
+\mathrm{PBIAS} = 100 \cdot \frac{\sum_t (o_t - p_t)}{\sum_t o_t}
+$$
+
+Negativo = sobreestima. Positivo = infraestima.
+
+Crítico para balance hídrico anual.
+
+---
+
+## Predicción probabilística (mención)
+
+En vez de un valor puntual, predecir **distribución**:
+
+- **Quantile regression**: predice $q_{0.05}, q_{0.5}, q_{0.95}$.
+- **Conformal prediction**: intervalos con cobertura garantizada.
+- **Distribucional**: parámetros de una distribución asumida.
+
+. . .
+
+```python
+# Ejemplo conformal con skforecast
+from skforecast.model_selection import ConformalIntervalForecaster
+ci_forecaster = ConformalIntervalForecaster(forecaster, alpha=0.1)
+ci_forecaster.fit(y_train, exog=X_train)
+intervals = ci_forecaster.predict(steps=10, exog=X_test)
+```
+
+. . .
+
+> En sesión 4 cerramos con un breve recordatorio. Más a fondo: cursos de UQ.
+
+---
+
+## Resumen Bloque 5
+
+- **NSE** + **KGE** + **PBIAS** + **error en pico** — el panel hidrológico mínimo.
+- NSE penaliza picos mal predichos; KGE permite diagnóstico.
+- Genéricas (RMSE, MAE) siguen útiles pero **no bastan**.
+- Para gestión de avenida: mira el **error en pico**, no el promedio.
+
+---
+
+# Mapa final
+
+---
+
+## Cuándo usar qué (sesión 2 vs 3 vs 4)
+
+| Tienes... | Usa |
+|---|---|
+| Pocos años, estacionalidad clara, sin covariables | ETS / SARIMA (S2) |
+| Muchos años + covariables (lluvia) + interés en picos | RF / XGBoost / LightGBM (S3) |
+| Pozos irregulares + lluvia | Pastas (S2) |
+| Cuenca compleja, mucha info, foco en picos | LSTM / DL (S4) |
+| Necesitas explicación al cliente | SHAP — siempre |
+
+---
+
+## Próximos pasos
+
+**Práctica (1h 30min):**
+
+1. `01_features_y_baseline.ipynb` — construir matriz de features + baseline lineal.
+2. `02_rf_y_xgboost.ipynb` — RF + XGBoost + SHAP.
+3. `03_backtesting_y_metricas.ipynb` — walk-forward + NSE/KGE/error pico.
+
+. . .
+
+Mañana: **Deep Learning** sobre los mismos datos.
+
+# ¡Gracias!
+
+Dudas y debate

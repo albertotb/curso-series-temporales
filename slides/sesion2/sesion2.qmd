@@ -1,7 +1,7 @@
 ---
 title: "Sesión 2 — Modelos estadísticos y Pastas"
 subtitle: "Curso de Series Temporales con Python"
-author: "Alberto Torres — Komorebi AI"
+author: "Alberto Torres · Komorebi AI"
 date: today
 date-format: "MMMM YYYY"
 format:
@@ -9,21 +9,487 @@ format:
     output-file: sesion2.html
 ---
 
-# Bienvenida {.dark background-color="#084633"}
+```{python}
+#| label: setup-global
+#| echo: false
+import sys, os
+sys.path.insert(0, os.path.abspath("../../notebooks/sesion1"))
+import warnings
+warnings.filterwarnings("ignore")
 
-Sesión casi 100% práctica.
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+plt.rcParams.update({
+    "figure.figsize": (9, 3.4),
+    "axes.grid": True,
+    "grid.alpha": 0.3,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "font.size": 11,
+})
+
+import utils_datos as ud
+
+CAUDAL = ud.cargar_caudal_genil()
+LLUVIA = ud.cargar_lluvia_genil_diaria(fecha_inicio="1995-01-01", fecha_fin="2020-12-31")
+CAUDAL_M = CAUDAL.resample("MS").mean().loc["1995":"2020"].interpolate("linear", limit=2)
+LLUVIA_M = LLUVIA.resample("MS").sum().loc["1995":"2020"]
+```
+
+# Bienvenida
+
+Sesión densa: **75 min de teoría** (todos los modelos clásicos) + **3 h 15 min de práctica** en 4 notebooks.
+
+. . .
+
+Datasets de hoy:
+
+- Caudal **mensual** del Genil (Pinos-Genil, ROEA 5020).
+- Lluvia diaria/mensual ERA5 sobre Pinos-Genil (Open-Meteo).
+- Cota piezométrica `PZ0267014` (CHD) + lluvia ERA5 sobre Valladolid.
 
 ---
 
 ## Agenda
 
-1. Repaso ARIMA / SARIMA
-2. Suavizado exponencial (ETS)
-3. Modelos `Pastas` aplicados a piezometría
-4. Validación cruzada para series temporales
-5. Métricas: RMSE, MAE, NSE, KGE
-6. Comparación de modelos
+1. **AR / MA / ARMA** — bloques de construcción.
+2. **ARIMA / SARIMA / SARIMAX** — la familia completa.
+3. **Diagnóstico** y selección (AIC / BIC).
+4. **ETS** — suavizado exponencial.
+5. **Prophet** — modelo aditivo bayesiano.
+6. **Pastas** — respuesta a impulsos para piezometría.
 
 . . .
 
-Ver `notebooks/sesion2/` para el desarrollo guiado.
+Y al final de cada bloque, un mini-mapa de **cuándo elegir cuál**.
+
+---
+
+# Familia ARIMA
+
+---
+
+## Panorama de modelos clásicos
+
+```{mermaid}
+flowchart LR
+  AR[AR<br/>autoregresivo] --> ARMA
+  MA[MA<br/>media móvil] --> ARMA[ARMA]
+  ARMA --> ARIMA[ARIMA<br/>+ diferenciación]
+  ARIMA --> SARIMA[SARIMA<br/>+ estacionalidad]
+  SARIMA --> SARIMAX[SARIMAX<br/>+ covariables]
+```
+
+Todos comparten una **filosofía**: el siguiente valor se expresa como combinación lineal del pasado (de la propia serie y/o de los errores), más posiblemente lluvia, temperatura, etc.
+
+---
+
+## AR(p) — autoregresivo
+
+$$
+y_t = c + \phi_1 y_{t-1} + \phi_2 y_{t-2} + \cdots + \phi_p y_{t-p} + \varepsilon_t
+$$
+
+. . .
+
+- $\phi_i$ son los coeficientes autorregresivos.
+- $\varepsilon_t \sim \mathcal{N}(0, \sigma^2)$ ruido blanco.
+- **Identificación:** PACF se corta en lag $p$.
+
+. . .
+
+```{python}
+#| label: ar-simulado
+#| echo: true
+from statsmodels.tsa.arima_process import ArmaProcess
+ar = ArmaProcess([1, -0.8, 0.2]).generate_sample(400, scale=1.0)
+print(f"AR(2): media={ar.mean():.2f}  std={ar.std():.2f}")
+```
+
+---
+
+## MA(q) — media móvil
+
+$$
+y_t = c + \varepsilon_t + \theta_1 \varepsilon_{t-1} + \cdots + \theta_q \varepsilon_{t-q}
+$$
+
+. . .
+
+- "Shock" reciente que se propaga $q$ pasos.
+- **Identificación:** ACF se corta en lag $q$.
+
+. . .
+
+ARMA(p,q) = mezcla de los dos: $y_t$ depende de su pasado **y** de errores pasados.
+
+> ARMA sólo funciona si la serie es **estacionaria**. Si no lo es → ARIMA.
+
+---
+
+## ARIMA(p, d, q)
+
+$$
+\nabla^d y_t \sim \mathrm{ARMA}(p, q)
+$$
+
+donde $\nabla y_t = y_t - y_{t-1}$ es la diferencia primera.
+
+. . .
+
+- **$d$**: número de diferenciaciones para hacer estacionaria la serie.
+  - $d = 0$ → ya estacionaria (rara vez en hidrología).
+  - $d = 1$ → tendencia lineal eliminada.
+  - $d = 2$ → curvaturas. Casi nunca necesario.
+
+. . .
+
+**Elegir $d$**: tests ADF/KPSS sobre la serie y sus diferencias. Si KPSS sigue rechazando con $d=1$, prueba $d=2$.
+
+---
+
+## SARIMA(p,d,q)(P,D,Q,s)
+
+Extiende ARIMA con **estacionalidad** de periodo $s$:
+
+- $(p, d, q)$: parte **regular**.
+- $(P, D, Q)$: parte **estacional** (lags múltiplos de $s$).
+- $s$: período (12 si mensual con ciclo anual, 7 si diario con ciclo semanal, 24 si horario con ciclo diario).
+
+. . .
+
+```{python}
+#| label: sarima-acf
+#| fig-cap: "ACF del caudal mensual — picos en lags 12, 24, 36"
+from statsmodels.graphics.tsaplots import plot_acf
+fig, ax = plt.subplots()
+plot_acf(CAUDAL_M.dropna(), lags=40, ax=ax, color="#1f6f8b")
+ax.set_xlabel("Lag (meses)"); ax.set_title("")
+plt.tight_layout()
+```
+
+---
+
+## SARIMAX — covariables exógenas
+
+$$
+y_t = \mathrm{SARIMA}(p,d,q)(P,D,Q,s) + \beta_1 x_{1,t} + \cdots + \beta_k x_{k,t}
+$$
+
+. . .
+
+En hidrología la covariable canónica es la **lluvia retardada**:
+
+```{python}
+#| label: sarimax-ejemplo
+#| echo: true
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+endog = CAUDAL_M.dropna()
+exog = LLUVIA_M.shift(1).reindex(endog.index)   # lluvia del mes anterior
+mask = exog.notna()
+modelo = SARIMAX(endog[mask], exog=exog[mask],
+                 order=(1,1,1), seasonal_order=(1,0,1,12)).fit(disp=False)
+nombre_exog = modelo.model.exog_names[0]
+print(f"AIC = {modelo.aic:.1f}   coef lluvia ({nombre_exog}) = {modelo.params[nombre_exog]:.3f}")
+```
+
+Coeficiente positivo → más lluvia el mes anterior → más caudal este mes.
+
+---
+
+## Box-Jenkins — la receta clásica
+
+Cuatro pasos iterativos:
+
+1. **Identificación** — STL + ADF/KPSS para elegir $d$, $D$; ACF/PACF para órdenes iniciales.
+2. **Estimación** — ajustar por máxima verosimilitud.
+3. **Diagnóstico** — residuos = ruido blanco? Ljung-Box, Q-Q plot, ACF de residuos.
+4. **Pronóstico** — si pasa el diagnóstico.
+
+. . .
+
+Si el diagnóstico falla → volver al paso 1 con otros órdenes.
+
+---
+
+## Diagnóstico de residuos
+
+```{python}
+#| label: diag-residuos
+#| fig-cap: "Diagnóstico del SARIMAX — `plot_diagnostics` en una línea"
+fig = modelo.plot_diagnostics(figsize=(10, 5))
+plt.tight_layout()
+```
+
+. . .
+
+Lo que debemos comprobar:
+
+- Residuos sin patrón (top-left).
+- Histograma ~ normal y Q-Q lineal.
+- ACF de residuos plana.
+
+---
+
+## Selección de modelo — AIC, BIC, AICc
+
+Cuanto más bajo, mejor:
+
+$$
+\mathrm{AIC} = -2 \ln \mathcal{L} + 2 k, \qquad \mathrm{BIC} = -2 \ln \mathcal{L} + k \ln n
+$$
+
+- $\mathcal{L}$: verosimilitud.
+- $k$: número de parámetros.
+- $n$: tamaño muestral.
+
+. . .
+
+- **AIC** premia ajuste; tolera modelos más grandes.
+- **BIC** penaliza más; prefiere modelos parsimoniosos.
+- **AICc** = AIC corregido para $n$ pequeño.
+
+. . .
+
+**Regla:** explora un rango $(p,d,q)(P,D,Q,s)$ y quédate con el de **AIC más bajo** que pase el diagnóstico de residuos.
+
+---
+
+# Suavizado exponencial (ETS)
+
+---
+
+## ETS — la otra gran familia
+
+ETS = **E**rror, **T**rend, **S**easonal. Cada componente puede ser **A**ditiva, **M**ultiplicativa o **N**inguna.
+
+Notación: ETS(A,A,A), ETS(A,Ad,A), ETS(M,A,M)…
+
+. . .
+
+**Idea común:** el pronóstico se actualiza como una media ponderada del último valor observado y la predicción anterior, con pesos que decaen exponencialmente.
+
+. . .
+
+Casos clásicos:
+
+- ETS(A,N,N) = **Simple Exponential Smoothing** (sin tendencia).
+- ETS(A,A,N) = **Holt** (tendencia lineal).
+- ETS(A,A,A) = **Holt-Winters** aditivo (tendencia + estacionalidad).
+
+---
+
+## Holt-Winters en una línea
+
+```{python}
+#| label: ets-fit
+#| echo: true
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+ets = ExponentialSmoothing(CAUDAL_M.dropna(), trend="add",
+                           seasonal="add", seasonal_periods=12).fit()
+print(f"α (nivel) = {ets.params['smoothing_level']:.3f}")
+print(f"β (tendencia) = {ets.params['smoothing_trend']:.3f}")
+print(f"γ (estacional) = {ets.params['smoothing_seasonal']:.3f}")
+```
+
+. . .
+
+```{python}
+#| label: ets-fig
+#| fig-cap: "Ajuste Holt-Winters sobre el caudal mensual"
+fig, ax = plt.subplots()
+ax.plot(CAUDAL_M.dropna(), color="#1f6f8b", lw=0.8, label="observado")
+ax.plot(ets.fittedvalues, color="#c2410c", lw=1.2, ls="--", label="ETS ajustado")
+ax.set_ylabel("Q (m³/s)"); ax.legend()
+plt.tight_layout()
+```
+
+---
+
+## ARIMA vs ETS — cuándo elegir cuál
+
+| | ARIMA / SARIMAX | ETS |
+|---|---|---|
+| **Estacionariedad** | la pide (diferencia) | no la pide |
+| **Estacionalidad** | aditiva o multiplicativa via $s$ | aditiva o multiplicativa explícita |
+| **Covariables** | sí (SARIMAX) | no (sin extensiones) |
+| **Intervalos** | paramétricos | paramétricos + bootstrap |
+| **Selección** | AIC/BIC sobre rejilla | AICc dentro de las 19 combinaciones ETS |
+
+. . .
+
+**Regla:** si tienes **lluvia u otra covariable**, SARIMAX. Si no, ETS suele ganar como baseline.
+
+---
+
+# Prophet
+
+---
+
+## Prophet — modelo aditivo de Meta
+
+$$
+y(t) = g(t) + s(t) + h(t) + \varepsilon_t
+$$
+
+- $g(t)$: tendencia por tramos (lineal o saturada logística).
+- $s(t)$: estacionalidades múltiples vía series de Fourier (anual, semanal, diaria…).
+- $h(t)$: efectos de **festivos** o eventos especiales.
+- $\varepsilon_t$: ruido.
+
+. . .
+
+**Diseñado para usuarios no estadísticos:**
+
+- Tolera **huecos** y fechas irregulares.
+- Detecta **changepoints** automáticamente.
+- API uniforme: `fit(df)` + `predict(future)`.
+
+. . .
+
+**Limitación:** no escala bien a más de unos pocos miles de muestras o múltiples regresores correlacionados.
+
+---
+
+## Prophet en código
+
+```{python}
+#| label: prophet-demo
+#| echo: true
+from prophet import Prophet
+import logging
+logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
+
+df = (CAUDAL_M.dropna()
+      .rename_axis("ds").reset_index()
+      .rename(columns={CAUDAL_M.name: "y"}))
+df["lluvia"] = LLUVIA_M.reindex(df["ds"]).values
+
+m = Prophet(yearly_seasonality=True, weekly_seasonality=False, daily_seasonality=False)
+m.add_regressor("lluvia")
+m.fit(df)
+
+future = m.make_future_dataframe(periods=12, freq="MS")
+future["lluvia"] = df["lluvia"].mean()
+fc = m.predict(future)
+print(f"yhat[-3:] = {fc['yhat'].tail(3).round(2).tolist()} m³/s")
+```
+
+---
+
+# Pastas — piezometría con respuesta a impulsos
+
+---
+
+## El problema de la piezometría
+
+Caudales: tenemos **densidad temporal** alta (diario o sub-horario), tendencia mínima, estacionalidad clara → modelos clásicos funcionan.
+
+. . .
+
+Piezometría:
+
+- **Muestreo irregular** (meses entre mediciones).
+- Series de **años a décadas**.
+- Influida por **lluvia**, **bombeo**, **temperatura**, **mareas** (en costa)...
+
+. . .
+
+ARIMA aquí no encaja. La filosofía cambia: en lugar de modelar $h_t$ vs su pasado, modelamos **cómo responde** a *estímulos* (lluvia, bombeo).
+
+---
+
+## Respuesta a impulsos — la idea
+
+Un estímulo (lluvia) en el instante $\tau$ produce una respuesta $\theta(t-\tau)$ que se suma:
+
+$$
+h(t) = h_0 + \sum_{\tau \le t} R(\tau) \cdot \theta(t - \tau) + \varepsilon(t)
+$$
+
+. . .
+
+- $R(\tau)$: recarga (función de la lluvia).
+- $\theta$: **respuesta a impulso unitario** (parametrizada, p. ej. distribución Gamma).
+- $h_0$: nivel base.
+
+. . .
+
+```{mermaid}
+flowchart LR
+  P[Lluvia] --> R[Recarga]
+  B[Bombeo] --> S[Stress]
+  R --> C[Convolución θ]
+  S --> C
+  C --> H[Nivel piezométrico]
+```
+
+---
+
+## Pastas en código (preview del notebook)
+
+```python
+import pastas as ps
+
+ml = ps.Model(piezo, name="PZ0267014")
+ml.add_stressmodel(ps.StressModel(lluvia, rfunc=ps.Gamma(), name="recarga"))
+ml.solve()
+ml.plot()
+```
+
+. . .
+
+Output típico:
+
+- Función de respuesta $\theta$ con su **tiempo de respuesta** característico.
+- **Contribución** de cada estímulo al nivel.
+- Calibración con intervalos de confianza.
+
+. . .
+
+> Pastas **no es** un wrapper de ARIMA — es un framework distinto, pensado específicamente para aguas subterráneas. Lo veremos a fondo en el notebook 03.
+
+---
+
+# Mapa final
+
+---
+
+## ¿Qué modelo usar y cuándo?
+
+| Situación | Modelo recomendado |
+|---|---|
+| Caudal/nivel con estacionalidad clara, sin covariables | **ETS** (Holt-Winters) |
+| Caudal con lluvia como input | **SARIMAX** |
+| Múltiples estacionalidades, holidays, datos a trozos | **Prophet** |
+| Piezometría irregular con lluvia/bombeo | **Pastas** |
+| Necesitas más capacidad → eventos, no-linealidad | Sesión 3 (ML) / Sesión 4 (DL) |
+
+. . .
+
+Y siempre: evaluar con métricas **hidrológicas** (NSE, KGE) además de RMSE/MAE — lo cerramos hoy en el notebook 04.
+
+---
+
+## Resumen
+
+- ARIMA, ETS, Prophet, Pastas: 4 herramientas, 4 filosofías. Conocer las cuatro evita usar martillo cuando hace falta llave inglesa.
+- **Antes de modelar:** STL + ACF/PACF + tests (Sesión 1).
+- **Box-Jenkins** sigue siendo la metodología base: identificar → estimar → diagnosticar → predecir.
+- **Métricas hidrológicas** (NSE, KGE, error en pico) > métricas genéricas para evaluar predicción de eventos.
+
+. . .
+
+**Práctica (3h 15min):**
+
+1. `01_arima_ets_caudal.ipynb`
+2. `02_prophet_baseline.ipynb`
+3. `03_pastas_piezometria.ipynb`
+4. `04_validacion_y_comparacion.ipynb`
+
+# ¡Gracias!
+
+Dudas y debate

@@ -10,7 +10,7 @@ requires-python = ">=3.12,<3.14"
 dependencies = [
     # Core data stack
     "numpy>=1.26",
-    "pandas>=2.2",
+    "pandas>=2.2,<3",     # pastas 1.11 no soporta pandas 3.0 (freq 'D' rota)
     "scipy>=1.13",
     "openpyxl>=3.1",            # leer .xlsx
     # Visualización

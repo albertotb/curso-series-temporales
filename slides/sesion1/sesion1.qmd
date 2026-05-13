@@ -1,7 +1,7 @@
 ---
-title: "Sesión 1 — Fundamentos y modelos estadísticos"
+title: "Sesión 1 — Fundamentos y exploración"
 subtitle: "Curso de Series Temporales con Python"
-author: "Alberto Torres"
+author: "Alberto Torres · Komorebi AI"
 date: today
 date-format: "MMMM YYYY"
 format:
@@ -9,76 +9,747 @@ format:
     output-file: sesion1.html
 ---
 
+```{python}
+#| label: setup-global
+#| echo: false
+import sys, os
+sys.path.insert(0, os.path.abspath("../../notebooks/sesion1"))
+import warnings
+warnings.filterwarnings("ignore")
 
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+plt.rcParams.update({
+    "figure.figsize": (9, 3.6),
+    "axes.grid": True,
+    "grid.alpha": 0.3,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "font.size": 11,
+})
+
+import utils_datos as ud
+
+CAUDAL = ud.cargar_caudal_genil()           # Pinos-Genil ROEA 5020
+LLUVIA_M = ud.cargar_lluvia_mencia()        # Iznájar mensual ref_evap=5001
+PIEZO = ud.cargar_piezometria()             # PZ0267014 (Duero)
+```
 
 # Bienvenida
 
-Objetivos, contexto y organización de la sesión.
+Curso de **4 sesiones (5 h cada una)** centrado en series temporales hidrometeorológicas en Python.
+
+- Hoy: fundamentos, exploración y limpieza.
+- Mañana: modelos estadísticos (ARIMA, ETS, Prophet, Pastas).
+- Sesión 3: ML clásico + evaluación.
+- Sesión 4: Deep Learning + proyecto final.
 
 ---
 
-## Agenda
+## Agenda de hoy
 
-1. Conceptos básicos de series temporales hidrometeorológicas
-2. Estacionariedad, tendencia, estacionalidad y ruido
-3. Descomposición STL
-4. Autocorrelación y correlación cruzada
-5. Manejo de outliers y datos faltantes
-6. Introducción a modelos estadísticos (ARIMA, suavizado exponencial)
-7. Funciones de respuesta a impulsos con `Pastas`
+1. ¿Qué es una serie temporal? — *30 min*
+2. Componentes y estacionariedad — *1 h*
+3. Autocorrelación y correlación cruzada — *45 min*
+4. Limpieza y agregación — *45 min*
+5. Práctica guiada en notebooks — *1 h 30 min*
+
+. . .
+
+**Dataset común:**
+
+- Caudal del **Genil** (ROEA Pinos-Genil 5020, 1970–2021).
+- Cota piezométrica `PZ0267014` (CHD, 1985–2024).
+- Lluvia mensual en Iznájar (ROEA 5001).
 
 ---
 
-## ¿Qué es una serie temporal?
+# Bloque 1 · ¿Qué es una serie temporal?
 
-Una secuencia de observaciones ordenadas en el tiempo:
+---
+
+## Definición
+
+Una **serie temporal** es una secuencia de observaciones ordenadas en el tiempo:
 
 $$
 \{y_t\}_{t=1}^{T},\qquad t \in \mathbb{N}
 $$
 
-En hidrología trabajamos típicamente con:
+. . .
 
-- **Caudales** $Q_t$ (m³/s) — series diarias u horarias
-- **Niveles piezométricos** $h_t$ (m s.n.m.) — series mensuales o diarias
-- **Precipitación** $P_t$ (mm) — series acumuladas
+En hidrología típicamente:
+
+- **Caudales** $Q_t$ (m³/s): horario, diario.
+- **Niveles piezométricos** $h_t$ (m s.n.m.): mensual a diario.
+- **Precipitación** $P_t$ (mm): horario a diario, **acumulada**.
 
 . . .
 
-Las observaciones **no son independientes**: el valor en $t$ depende del pasado.
+Lo que las hace especiales: **las observaciones no son independientes**.
 
 ---
 
-## Ejemplo en Python
+## Ejemplo: caudal real del Genil
 
 ```{python}
-#| label: ejemplo-caudal
-#| fig-cap: "Serie sintética estilo caudal diario"
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-rng = np.random.default_rng(42)
-t = pd.date_range("2020-01-01", periods=365 * 3, freq="D")
-estacional = 5 + 3 * np.sin(2 * np.pi * t.dayofyear / 365)
-tendencia = np.linspace(0, 1, len(t))
-ruido = rng.normal(0, 0.5, len(t))
-y = estacional + tendencia + ruido
-
-fig, ax = plt.subplots(figsize=(9, 3))
-ax.plot(t, y, color="#60AA6B", lw=0.8)
+#| label: fig-caudal-genil
+#| fig-cap: "Caudal diario en Pinos-Genil (1975–2020) — ROEA 5020"
+caudal_plot = CAUDAL.loc["1975":"2020"]
+fig, ax = plt.subplots()
+ax.plot(caudal_plot.index, caudal_plot.values, color="#1f6f8b", lw=0.4)
 ax.set_xlabel("Fecha"); ax.set_ylabel("Caudal (m³/s)")
-ax.grid(alpha=0.3)
+plt.tight_layout()
+```
+
+. . .
+
+Se observan: estacionalidad anual, eventos extremos, gaps.
+
+---
+
+## Frecuencias y problemas típicos
+
+**Frecuencias** que veremos:
+
+- Horaria (SAIH, eventos extremos).
+- Diaria (aforos, base del curso).
+- Mensual (piezometría, agregados).
+- Irregular (piezometría manual, manantiales).
+
+. . .
+
+**Problemas** que aborda el curso:
+
+- Descripción / EDA.
+- Predicción puntual a corto/medio plazo.
+- Detección de eventos extremos (crecida, sequía).
+- Predicción probabilística (mención).
+
+---
+
+## Por qué no vale el train/test aleatorio
+
+Con datos i.i.d.: barajar y dividir 80/20 es válido. Con series:
+
+. . .
+
+- **Las observaciones están correlacionadas**: el modelo "aprende del futuro".
+- **Hay tendencias y estacionalidad** que el split aleatorio rompe.
+- Métricas optimistas → falsa confianza.
+
+. . .
+
+**Regla:** train/val/test cronológicos (`X[:t1]`, `X[t1:t2]`, `X[t2:]`).
+Cuando queramos CV: *walk-forward* o expanding window (sesión 3).
+
+---
+
+## Caso del curso: crecida de feb 1985
+
+```{python}
+#| label: fig-crecida-1985
+#| fig-cap: "Evento extremo: crecida de febrero 1985 (Genil)"
+ventana = CAUDAL.loc["1985-01-15":"1985-03-15"]
+fig, ax = plt.subplots()
+ax.plot(ventana.index, ventana.values, color="#c2410c", lw=1.5, marker="o", ms=3)
+ax.axhline(ventana.dropna().quantile(0.95), color="grey", ls="--", lw=0.8,
+           label="P95 del periodo")
+ax.set_xlabel("Fecha"); ax.set_ylabel("Caudal (m³/s)")
+ax.legend()
+plt.tight_layout()
+```
+
+Pico de **230 m³/s** el 11 de febrero. Predecir este tipo de eventos es el reto del curso.
+
+---
+
+# Bloque 2 · Componentes y estacionariedad
+
+---
+
+## Hidrograma — intuición física antes de la estadística
+
+Un evento de lluvia produce una respuesta de caudal con forma característica:
+
+- **Subida** rápida (minutos–horas).
+- **Pico** $Q_p$.
+- **Recesión** aproximadamente exponencial: $Q(t) = Q_p \cdot e^{-t/\tau}$.
+- **Caudal base** (aporte subterráneo, lento).
+
+. . .
+
+```{python}
+#| label: fig-hidrograma
+#| fig-cap: "Hidrograma típico — evento de feb 1985 (Pinos-Genil)"
+ventana = CAUDAL.loc["1985-02-08":"1985-02-28"].dropna()
+fig, ax = plt.subplots(figsize=(9, 3.2))
+ax.fill_between(ventana.index, ventana.values, color="#1f6f8b", alpha=0.25)
+ax.plot(ventana.index, ventana.values, color="#1f6f8b", lw=1.5)
+ax.axhline(ventana.iloc[0], color="grey", ls="--", lw=0.8, label="caudal base")
+ax.annotate("pico $Q_p$", xy=(ventana.idxmax(), ventana.max()),
+            xytext=(10, -15), textcoords="offset points",
+            arrowprops=dict(arrowstyle="->"))
+ax.set_ylabel("Q (m³/s)"); ax.legend()
 plt.tight_layout()
 ```
 
 ---
 
-## Próximos pasos
+## Qué implica esto para la modelización
 
-- Práctica guiada en `notebooks/sesion1/01_carga_y_exploracion.ipynb`
-- Lectura recomendada: [FPP3 — cap. 2 y 3](https://otexts.com/fpp3/)
+- La **autocorrelación alta** a lags bajos sale del flujo base + recesión, no es \"memoria\" estadística.
+- Los **picos** son casi impredecibles desde el caudal sólo → necesitan **lluvia** como covariable (CCF, sesión 2).
+- $\tau$ (tiempo de respuesta) es lo que la CCF intenta estimar.
+- En piezometría aparece el mismo patrón pero $\tau$ es de **meses–años** (recarga lenta).
+
+. . .
+
+**Mensaje:** modelar bien series hidrológicas exige conocer mínimamente la física del proceso, no sólo la estadística.
+
+---
+
+## Descomposición conceptual
+
+Una serie se puede escribir como suma (modelo **aditivo**):
+
+$$
+y_t = T_t + S_t + C_t + \varepsilon_t
+$$
+
+. . .
+
+- $T_t$ tendencia (cambio lento, no periódico).
+- $S_t$ estacionalidad (periodo conocido: anual, semanal…).
+- $C_t$ ciclo (periodo desconocido o variable).
+- $\varepsilon_t$ residuo / ruido.
+
+. . .
+
+O multiplicativo: $y_t = T_t \cdot S_t \cdot \varepsilon_t$ (varianza crece con el nivel).
+
+---
+
+## Aditivo vs multiplicativo
+
+::: {.columns}
+
+::: {.column width="50%"}
+
+**Aditivo**
+
+- Estacionalidad de **amplitud constante**.
+- Buen ajuste para piezometría, temperatura.
+
+:::
+
+::: {.column width="50%"}
+
+**Multiplicativo**
+
+- Amplitud **proporcional al nivel**.
+- Habitual en caudales, demanda eléctrica.
+- Truco: aplicar $\log$ → vuelve aditivo.
+
+:::
+
+:::
+
+. . .
+
+En la práctica: si dudas, **prueba ambos** y compara residuos.
+
+---
+
+## Estacionariedad
+
+Una serie es **estrictamente estacionaria** si la distribución conjunta de
+$(y_{t_1}, ..., y_{t_k})$ es invariante a traslaciones temporales.
+
+. . .
+
+Más práctico: **estacionariedad débil** (covarianza-estacionariedad):
+
+1. $\mathbb{E}[y_t] = \mu$ constante.
+2. $\mathrm{Var}(y_t) = \sigma^2$ constante.
+3. $\mathrm{Cov}(y_t, y_{t+h}) = \gamma(h)$ depende solo del *lag* $h$.
+
+. . .
+
+**¿Por qué importa?** Casi todos los modelos clásicos (ARMA, ARIMA) asumen
+que la serie es estacionaria — al menos tras transformarla.
+
+---
+
+## Tests de estacionariedad
+
+Dos tests complementarios:
+
+- **ADF** (Augmented Dickey-Fuller): $H_0$ = hay raíz unitaria (no estacionaria).
+  Rechazar $H_0$ con $p < 0.05$ ⇒ estacionaria.
+- **KPSS**: $H_0$ = **es** estacionaria. Rechazar ⇒ no estacionaria.
+
+. . .
+
+```{python}
+#| label: tests-adf-kpss
+#| echo: true
+from statsmodels.tsa.stattools import adfuller, kpss
+serie = CAUDAL.loc["2000":"2020"].dropna()
+adf_p = adfuller(serie)[1]
+kpss_p = kpss(serie, regression="c", nlags="auto")[1]
+print(f"ADF p-valor : {adf_p:.4f}   (rechaza H0 ⇒ estacionaria)")
+print(f"KPSS p-valor: {kpss_p:.4f}  (rechaza H0 ⇒ NO estacionaria)")
+```
+
+**Buena práctica:** correr los dos. Conclusiones contradictorias ⇒ revisar
+tendencia y estacionalidad.
+
+---
+
+## Cuando no es estacionaria: transformaciones
+
+Tres opciones clásicas:
+
+1. **Diferenciación**: $\nabla y_t = y_t - y_{t-1}$ (elimina tendencia lineal).
+   Para estacionalidad: $\nabla_s y_t = y_t - y_{t-s}$.
+2. **Logaritmo** $\log y_t$: estabiliza varianza si crece con el nivel.
+3. **Box-Cox**: $y^{(\lambda)}$ generalización paramétrica.
+
+. . .
+
+```{python}
+#| label: fig-diff
+#| fig-cap: "Caudal del Genil y su diferencia primera (2010–2015)"
+ventana = CAUDAL.loc["2010":"2015"].dropna()
+fig, axes = plt.subplots(2, 1, figsize=(9, 4), sharex=True)
+axes[0].plot(ventana.index, ventana.values, color="#1f6f8b", lw=0.6)
+axes[0].set_ylabel("Q (m³/s)")
+axes[1].plot(ventana.index, ventana.diff().values, color="#7c3aed", lw=0.4)
+axes[1].set_ylabel("ΔQ")
+plt.tight_layout()
+```
+
+---
+
+## Box-Cox — generalización paramétrica
+
+Familia paramétrica que engloba log y otras potencias:
+
+$$
+y^{(\lambda)} = \begin{cases}
+\dfrac{y^{\lambda} - 1}{\lambda}, & \lambda \neq 0 \\[4pt]
+\log y, & \lambda = 0
+\end{cases}
+$$
+
+. . .
+
+- $\lambda = 1$ → identidad.
+- $\lambda = 0.5$ → raíz (intermedia).
+- $\lambda = 0$ → logaritmo (estabiliza varianza proporcional).
+- $\lambda < 0$ → inversa, compresión fuerte.
+
+. . .
+
+```{python}
+#| label: boxcox
+#| echo: true
+from scipy.stats import boxcox
+serie = CAUDAL.dropna().clip(lower=0.1).values
+y_bc, lmbda = boxcox(serie)
+print(f"λ óptimo (MLE): {lmbda:.3f}")
+```
+
+> Requiere $y > 0$. Si la serie tiene 0 (ríos efímeros) → usar **Yeo-Johnson**.
+
+---
+
+## Descomposición STL
+
+**STL** = Seasonal-Trend decomposition using **LOESS**. Cleveland et al. (1990).
+
+. . .
+
+- **Robusta** a outliers (a diferencia del clásico `seasonal_decompose`).
+- Permite estacionalidad que **cambia con el tiempo** (ventana ajustable).
+- Es **aditiva** (aplicar a $\log y$ si necesitas multiplicativa).
+
+. . .
+
+```{python}
+#| label: fig-stl
+#| fig-cap: "STL del caudal mensual del Genil (1995–2020)"
+from statsmodels.tsa.seasonal import STL
+mensual = CAUDAL.resample("MS").mean().loc["1995":"2020"].interpolate()
+stl = STL(mensual, period=12, robust=True).fit()
+fig = stl.plot(); fig.set_size_inches(9, 5)
+for ax in fig.axes: ax.grid(alpha=0.3)
+plt.tight_layout()
+```
+
+---
+
+## STL — parámetros prácticos
+
+```python
+STL(serie, period=12, seasonal=13, trend=None, robust=True)
+```
+
+- **`period`**: longitud del ciclo (12 mensual, 7 semanal, 365 diario anual).
+- **`seasonal`**: ventana LOESS de estacionalidad (impar, ≥ 7). Pequeño → estacionalidad cambia rápido; grande → más rígida.
+- **`trend`**: ventana de tendencia (por defecto $\approx 1.5 \cdot$`period`).
+- **`robust=True`**: descuenta outliers en el LOESS → **por defecto en hidrología**.
+
+. . .
+
+**Reglas prácticas:**
+
+- Empieza siempre con `robust=True` y `seasonal=13`.
+- Si ves el panel `seasonal` capturando picos puntuales → `seasonal` mayor.
+- Si la tendencia "sigue" eventos extremos → `trend` mayor o pre-limpieza más agresiva.
+
+---
+
+## STL — lectura de componentes
+
+Lo que buscamos en cada panel:
+
+- **Observed**: serie original.
+- **Trend**: ¿hay deriva? ¿cambios de régimen?
+- **Seasonal**: ¿amplitud estable? ¿el ciclo evoluciona?
+- **Residual**: ¿ruido blanco o sigue habiendo patrón?
+
+. . .
+
+**Si el residuo no es ruido blanco** ⇒ STL no es suficiente; queda
+estructura que un modelo puede capturar.
+
+---
+
+# Bloque 3 · Autocorrelación y correlación cruzada
+
+---
+
+## Autocorrelación (ACF)
+
+La **función de autocorrelación** mide la correlación entre $y_t$ e $y_{t-k}$:
+
+$$
+\rho(k) = \frac{\mathrm{Cov}(y_t, y_{t-k})}{\mathrm{Var}(y_t)}
+$$
+
+. . .
+
+- $\rho(0) = 1$ siempre.
+- Decae a 0 en series estacionarias.
+- Decae **lentamente** si hay tendencia o no-estacionariedad.
+
+---
+
+## ACF — ejemplo Genil
+
+```{python}
+#| label: fig-acf
+#| fig-cap: "ACF del caudal diario (2010–2020, hasta 60 días)"
+from statsmodels.graphics.tsaplots import plot_acf
+serie = CAUDAL.loc["2010":"2020"].dropna()
+fig, ax = plt.subplots()
+plot_acf(serie, lags=60, ax=ax, color="#1f6f8b")
+ax.set_xlabel("Lag (días)"); ax.set_title("")
+plt.tight_layout()
+```
+
+. . .
+
+Decae despacio ⇒ memoria larga, persistencia del flujo base.
+
+---
+
+## Autocorrelación parcial (PACF)
+
+La **PACF** mide la correlación entre $y_t$ e $y_{t-k}$ **tras eliminar el
+efecto de los lags intermedios** $y_{t-1}, ..., y_{t-k+1}$.
+
+. . .
+
+- ACF de AR(p): decae exponencialmente.
+- PACF de AR(p): **se corta a partir de $k = p$**.
+
+. . .
+
+**Uso clásico (Box-Jenkins):** identificar el orden $p$ de un AR mirando dónde
+la PACF "cae" dentro de los intervalos de confianza.
+
+---
+
+## PACF — Genil
+
+```{python}
+#| label: fig-pacf
+#| fig-cap: "PACF del caudal diario (2010–2020)"
+from statsmodels.graphics.tsaplots import plot_pacf
+fig, ax = plt.subplots()
+plot_pacf(serie, lags=30, ax=ax, color="#7c3aed", method="ywm")
+ax.set_xlabel("Lag (días)"); ax.set_title("")
+plt.tight_layout()
+```
+
+PACF significativa en lags 1-3 ⇒ AR(2) o AR(3) razonable como primer modelo.
+
+---
+
+## Correlación cruzada (CCF)
+
+La **CCF** mide la correlación entre dos series en distintos lags:
+
+$$
+\rho_{xy}(k) = \frac{\mathrm{Cov}(x_t, y_{t+k})}{\sigma_x \sigma_y}
+$$
+
+. . .
+
+En hidrología, el ejemplo canónico:
+
+- $x_t = $ **lluvia**, $y_t = $ **caudal**.
+- Buscamos el lag $k^*$ donde $|\rho_{xy}(k)|$ es máximo
+  ⇒ tiempo de respuesta de la cuenca.
+
+---
+
+## CCF — lluvia mensual Iznájar vs caudal Genil
+
+```{python}
+#| label: fig-ccf
+#| fig-cap: "CCF lluvia(t) → caudal(t+k), agregado mensual"
+caudal_m = CAUDAL.resample("MS").mean()
+df = pd.concat({"lluvia": LLUVIA_M, "caudal": caudal_m}, axis=1).dropna()
+lags = range(-6, 13)
+ccf = [df["lluvia"].corr(df["caudal"].shift(-k)) for k in lags]
+fig, ax = plt.subplots()
+ax.bar(list(lags), ccf, color="#2563eb", alpha=0.7)
+ax.axhline(0, color="k", lw=0.5)
+ax.set_xlabel("Lag k (meses)"); ax.set_ylabel(r"$\rho_{lluvia,caudal}(k)$")
+ax.axvline(0, color="grey", ls="--", lw=0.5)
+plt.tight_layout()
+```
+
+Pico hacia $k=1$–$2$ meses: la cuenca regulada responde con retardo.
+
+---
+
+## Lag plots
+
+Inspección visual rápida: $y_t$ frente a $y_{t-k}$.
+
+```{python}
+#| label: fig-lagplot
+#| fig-cap: "Lag plots del caudal (k=1, 7, 30)"
+from pandas.plotting import lag_plot
+serie = CAUDAL.loc["2015":"2020"].dropna()
+fig, axes = plt.subplots(1, 3, figsize=(10, 3.4))
+for ax, k in zip(axes, [1, 7, 30]):
+    lag_plot(serie, lag=k, ax=ax, marker=".", c="#1f6f8b", alpha=0.4)
+    ax.set_title(f"k = {k}"); ax.grid(alpha=0.3)
+plt.tight_layout()
+```
+
+. . .
+
+A medida que $k$ crece, la nube se redondea → correlación más baja.
+
+---
+
+## De ACF/PACF a órdenes (p,q) — preview de Sesión 2
+
+Box & Jenkins (1970) proponen una receta visual para identificar modelos ARMA:
+
+| Modelo | ACF | PACF |
+|---|---|---|
+| **AR(p)** | decae exponencial / sinusoidal | **se corta** en lag $p$ |
+| **MA(q)** | **se corta** en lag $q$ | decae exponencial |
+| **ARMA(p,q)** | decae | decae |
+
+. . .
+
+**Receta práctica:**
+
+- PACF "se corta" en lag $k$ → punto de partida **AR($k$)**.
+- ACF "se corta" en lag $k$ → punto de partida **MA($k$)**.
+- Ninguna se corta limpia → prueba **ARMA(1,1)** y compara con AIC/BIC.
+
+> Lo veremos en detalle mañana, cuando ajustemos ARIMA al caudal del Genil.
+
+---
+
+# Bloque 4 · Limpieza y agregación
+
+---
+
+## Outliers — ¿sensor o evento?
+
+**Causa física** (sensor):
+
+- Valores negativos en caudal o lluvia.
+- "Pulsos" aislados imposibles.
+- Estancamientos planos durante días.
+
+. . .
+
+**Evento real** (extremo):
+
+- Coincide con lluvia intensa.
+- Forma de **hidrograma**: subida rápida, recesión más lenta.
+- Coherente con estaciones próximas.
+
+. . .
+
+> **Regla:** nunca borrar sin investigar. Un valor "raro" puede ser
+> exactamente lo que queremos predecir.
+
+---
+
+## Detección de outliers — métodos
+
+1. **IQR clásico**: marcar $|x - \mathrm{med}| > 1.5 \cdot \mathrm{IQR}$.
+2. **Z-score robusto** (mediana + MAD):
+   $$z_i = \frac{|x_i - \tilde{x}|}{1.4826 \cdot \mathrm{MAD}}, \quad z_i > 3.5 \Rightarrow \text{outlier}$$
+3. **Hampel filter**: z-score robusto **en ventana móvil**. Captura outliers locales.
+
+. . .
+
+```{python}
+#| label: outliers-mad
+#| echo: true
+from scipy.stats import median_abs_deviation
+x = CAUDAL.dropna().values
+mad = median_abs_deviation(x, scale="normal")
+z = (x - np.median(x)) / mad
+print(f"% de outliers (|z| > 3.5): {(np.abs(z) > 3.5).mean()*100:.2f}%")
+```
+
+---
+
+## Detección de outliers — comparativa
+
+| Método | Idea | Ventaja | Cuándo falla |
+|---|---|---|---|
+| **Reglas físicas** | rangos válidos del dominio | imprescindible primer filtro | no detecta lo no anticipado |
+| **IQR** ($1.5 \cdot$IQR) | rangos cuartílicos | simple, sin asumir normalidad | global → marca eventos reales |
+| **Z-score robusto** | mediana + MAD normalizado | menos sensible a outliers fuertes | sigue siendo global |
+| **Hampel** | z-score robusto **en ventana móvil** | distingue ruido sensor de eventos | depende mucho de la ventana |
+
+. . .
+
+**Recomendación práctica:**
+
+1. Reglas físicas (siempre primero).
+2. Hampel con ventana 30 días.
+3. **Marcar, no eliminar**: añadir columna `flag` y dejar al modelador la decisión.
+
+---
+
+## Datos faltantes en hidrología
+
+Tres mecanismos clásicos (Rubin, 1976):
+
+- **MCAR**: faltan al azar. Ej. fallo de comunicación puntual.
+- **MAR**: faltan según otra variable observable. Ej. más NaN en invierno por nieve en sensor.
+- **MNAR**: faltan según el propio valor. Ej. sensor satura cuando $Q > Q_\max$.
+
+. . .
+
+```{python}
+#| label: tabla-gaps
+#| echo: false
+from itertools import groupby
+serie = CAUDAL.copy()
+mask = serie.isna().astype(int).values
+gaps = [sum(1 for _ in g) for k, g in groupby(mask) if k == 1]
+print(f"Total NaN: {serie.isna().sum():,}   "
+      f"#gaps: {len(gaps)}   "
+      f"gap mediano: {int(np.median(gaps))} días   "
+      f"gap máx: {max(gaps)} días")
+```
+
+En Pinos-Genil hay miles de NaN agrupados en gaps largos → no se imputan a ciegas.
+
+---
+
+## Imputación — qué usar y cuándo
+
+| Método | Cuándo | Cuándo NO |
+|---|---|---|
+| **forward-fill** | gaps muy cortos en variables lentas (piezometría) | caudal, lluvia |
+| **interpolación lineal** | gaps cortos (1–3 días) en variables suaves | gaps largos, picos |
+| **interpolación estacional** | gaps medios en variables periódicas | regímenes que cambian |
+| **modelo** (Pastas, kNN, regresión) | gaps largos con covariables disponibles | sin info auxiliar |
+| **dejar NaN** | gaps largos sin info, **piezometría** | si el modelo no los soporta |
+
+. . .
+
+> **Importante:** rellenar es introducir *información sintética*. Documenta siempre qué imputaste y cómo.
+
+---
+
+## Agregación temporal: `resample`
+
+Cambiar la frecuencia con `pandas.DataFrame.resample(...)`. **Regla distinta según variable:**
+
+| Variable | Regla de agregación |
+|---|---|
+| Caudal, nivel piezométrico, temperatura | `.mean()` |
+| Lluvia, evapotranspiración | `.sum()` |
+| Caudal máximo (eventos extremos) | `.max()` |
+| Disponibilidad / días con dato | `.count()` |
+
+. . .
+
+```{python}
+#| label: resample-demo
+#| echo: true
+q = CAUDAL.loc["2015":"2020"]
+q_mensual = q.resample("MS").mean()
+q_max_mensual = q.resample("MS").max()
+print(f"diario: {len(q):,} obs   →   mensual: {len(q_mensual)} obs")
+print(f"caudal medio mensual:  {q_mensual.mean():.2f} m³/s")
+print(f"caudal máx mensual medio: {q_max_mensual.mean():.2f} m³/s")
+```
+
+---
+
+## Buenas prácticas — qué documentar
+
+Para que tu análisis sea **reproducible y auditable** por otra persona (o por ti mismo en 6 meses):
+
+1. **Fuente y versión** de los datos: URL, fecha de descarga, versión del Anuario / SAIH.
+2. **Reglas físicas aplicadas**: rangos válidos por variable.
+3. **Outliers**: lista (timestamp + método + decisión conservar/eliminar/marcar).
+4. **Imputaciones**: rangos imputados + método + justificación.
+5. **Agregaciones**: regla por variable (`sum` lluvia, `mean` caudal, `max` eventos).
+6. **Periodo de validez**: dónde la serie es fiable para modelar.
+
+. . .
+
+**Truco práctico:** una columna `flag` en el `DataFrame` (`raw`, `corregido`, `imputado`, `evento_extremo`) ahorra reuniones más tarde.
+
+---
+
+## Resumen de la sesión
+
+- Series temporales = observaciones dependientes en el tiempo.
+- Antes de modelar: **mirar la serie**, descomponerla (STL), tests de
+  estacionariedad, ACF/PACF.
+- En hidrología, **outliers ≠ errores**: investiga, no borres.
+- Faltantes: la regla práctica es **no rellenar lo que no debes**.
+- Agrega con la regla apropiada para la variable.
+
+. . .
+
+**Siguiente paso:** notebooks 01-03 en `notebooks/sesion1/`.
 
 # ¡Gracias!
 
-Preguntas y debate
+Dudas y debate

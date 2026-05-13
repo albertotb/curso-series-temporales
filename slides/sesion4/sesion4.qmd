@@ -1,7 +1,7 @@
 ---
-title: "Sesión 4 — Práctica ML/DL y proyecto final"
+title: "Sesión 4 — Deep Learning y proyecto final"
 subtitle: "Curso de Series Temporales con Python"
-author: "Alberto Torres — Komorebi AI"
+author: "Alberto Torres · Komorebi AI"
 date: today
 date-format: "MMMM YYYY"
 format:
@@ -9,18 +9,404 @@ format:
     output-file: sesion4.html
 ---
 
-# Bienvenida {.dark background-color="#084633"}
+```{python}
+#| label: setup-global
+#| echo: false
+import sys, os
+sys.path.insert(0, os.path.abspath("../../notebooks/sesion1"))
+import warnings
+warnings.filterwarnings("ignore")
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-Implementación end-to-end y caso práctico final.
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+plt.rcParams.update({
+    "figure.figsize": (9, 3.4),
+    "axes.grid": True,
+    "grid.alpha": 0.3,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "font.size": 11,
+})
+
+import utils_datos as ud
+
+CAUDAL = ud.cargar_caudal_genil().loc["1995":"2020"]
+```
+
+# Bienvenida
+
+Última sesión del curso. **Formato mixto teoría-código en vivo.**
+
+- **1 h** de teoría: redes neuronales para series temporales.
+- **2 h** de práctica guiada en 3 notebooks (LSTM con Keras, comparación, interpretabilidad).
+- **1 h 30 min** de proyecto final autónomo.
+
+. . .
+
+Al final habrás:
+
+- Entrenado tu primera LSTM sobre datos hidrológicos reales.
+- Comparado estadístico vs ML vs DL con el mismo split y métricas.
+- Producido un análisis de errores por régimen.
 
 ---
 
 ## Agenda
 
-1. Práctica con `scikit-learn`
-2. Práctica con `PyTorch` (LSTM/GRU)
-3. Carga y preparación de datos: lags, ventanas, normalización
-4. Entrenamiento, evaluación e interpretación
-5. **Proyecto final** (1,5 h): pipeline completo
-   - Preprocesamiento → Modelado → Evaluación
-   - Predicción de caudales, niveles piezométricos y/o precipitación
+1. **MLP** con features de lag — el DL "barato".
+2. **RNN, LSTM, GRU** — modelos secuenciales.
+3. **1D-CNN y TCN** (mención).
+4. **Transformers** para series temporales (mención).
+5. **Pipeline DL en Keras** — preview del notebook 01.
+
+---
+
+# Bloque 4.1 · Redes neuronales para series temporales
+
+---
+
+## ¿Por qué DL en series temporales?
+
+Las series temporales son donde el DL **lleva más años conviviendo** con métodos clásicos y la respuesta no es obvia:
+
+. . .
+
+- **DL gana** cuando hay **mucho dato**, **no-linealidad**, **interacciones complejas** o **multivariate** (varias series + covariables).
+- **DL empata o pierde** cuando hay poco dato (< 10 años diarios), señal lineal clara, o estacionalidad dominante.
+- En **hidrología**, el LSTM ha mostrado mejoras consistentes en CAMELS-US (Kratzert et al., 2019) — pero a costa de complejidad operativa.
+
+. . .
+
+> **Mensaje del curso:** dominar los clásicos primero. DL como herramienta cuando los clásicos saturan.
+
+---
+
+## El camino más corto al DL — MLP
+
+Un **perceptrón multicapa** sobre la misma matriz $X$ (lags + rolling + exógenas) que usaste con XGBoost.
+
+```python
+from keras.models import Sequential
+from keras.layers import Dense, Input
+
+model = Sequential([
+    Input(shape=(n_features,)),
+    Dense(64, activation="relu"),
+    Dense(32, activation="relu"),
+    Dense(1),
+])
+model.compile(optimizer="adam", loss="mse")
+```
+
+. . .
+
+**Pros:** rápido, igual API que LSTM. **Contras:** no aprovecha el orden — cada muestra es un vector \"plano\". Suele perder vs XGBoost.
+
+. . .
+
+**Útil como:** baseline DL antes de complicarse.
+
+---
+
+## RNN — la idea
+
+Mantiene un **estado oculto** $h_t$ que se actualiza con cada nueva observación:
+
+$$
+h_t = \tanh(W_x x_t + W_h h_{t-1} + b)
+$$
+
+. . .
+
+```{mermaid}
+flowchart LR
+  X1[x_1] --> R1[RNN] --> H1[h_1]
+  X2[x_2] --> R2[RNN]
+  H1 --> R2 --> H2[h_2]
+  X3[x_3] --> R3[RNN]
+  H2 --> R3 --> H3[h_3]
+  H3 --> Y[ŷ]
+```
+
+. . .
+
+**Problema:** gradientes que **explotan o se desvanecen** al retropropagar por muchos pasos. La RNN básica olvida lo que pasó hace 20 pasos.
+
+---
+
+## LSTM — gates para recordar a largo plazo
+
+Hochreiter & Schmidhuber (1997). Tres puertas controlan qué información fluye:
+
+- **Forget gate** $f_t$: ¿qué del pasado olvido?
+- **Input gate** $i_t$: ¿qué de lo nuevo retengo?
+- **Output gate** $o_t$: ¿qué del estado expongo?
+
+$$
+\begin{aligned}
+f_t &= \sigma(W_f [h_{t-1}, x_t] + b_f) \\
+i_t &= \sigma(W_i [h_{t-1}, x_t] + b_i) \\
+\tilde{c}_t &= \tanh(W_c [h_{t-1}, x_t] + b_c) \\
+c_t &= f_t \odot c_{t-1} + i_t \odot \tilde{c}_t \\
+o_t &= \sigma(W_o [h_{t-1}, x_t] + b_o) \\
+h_t &= o_t \odot \tanh(c_t)
+\end{aligned}
+$$
+
+. . .
+
+**Memoria larga**: $c_t$ pasa información sin pasar por funciones que aplasten gradientes.
+
+---
+
+## GRU — la versión simplificada
+
+Cho et al. (2014). Une input + forget en una sola **update gate**; combina $c$ y $h$ en uno. **2 gates en vez de 3.**
+
+. . .
+
+| | RNN | LSTM | GRU |
+|---|---|---|---|
+| Parámetros (por unit) | 1× | 4× | 3× |
+| Memoria larga | mala | excelente | muy buena |
+| Velocidad | rápida | lenta | media |
+| Cuándo | pruebas rápidas | datasets grandes / dependencias largas | empate con LSTM en muchos casos |
+
+. . .
+
+**Heurística:** empieza con GRU. Si el modelo todavía no captura dependencias del año pasado, sube a LSTM con más unidades.
+
+---
+
+## 1D-CNN y TCN (mención)
+
+**1D-CNN:** convolución sobre la dimensión temporal. Aprende **patrones locales** (formas de hidrograma). Rápido, paralelo.
+
+. . .
+
+**TCN** (Temporal Convolutional Network, Bai et al. 2018):
+
+- Convoluciones **causales** (no ven el futuro).
+- **Dilated** → campo receptivo crece exponencialmente con pocas capas.
+- Suele igualar a LSTM en muchas tareas con mejor paralelismo.
+
+. . .
+
+```{mermaid}
+flowchart LR
+  X[x_t-7] --> C1
+  X1[x_t-6] --> C1
+  X2[x_t-5] --> C1
+  X3[x_t-4] --> C1
+  C1[Conv causal d=1] --> C2[Conv causal d=2]
+  C2 --> C3[Conv causal d=4]
+  C3 --> Y[ŷ_t]
+```
+
+. . .
+
+**Fuera del scope del curso** (preferimos LSTM por su valor pedagógico). Búsqueda en `keras-tcn` si quieres explorar.
+
+---
+
+## Transformers para series (mención)
+
+Vaswani et al. (2017) cambió NLP. En series temporales llegaron después:
+
+- **Informer** (2021): atención eficiente $O(L \log L)$.
+- **Autoformer** (2021): atención sobre la auto-correlación.
+- **PatchTST** (2023): trata cada parche temporal como token.
+- **iTransformer** (2024): atención sobre series (no sobre tiempo).
+
+. . .
+
+**Estado en hidrología (mayo 2026):**
+
+- Mejoras marginales sobre LSTM en CAMELS y similares.
+- Coste computacional alto.
+- **`neuralforecast`** (Nixtla) los expone con API uniforme.
+
+. . .
+
+> Conoce que existen. Empieza con LSTM. Salta a Transformers cuando puedas justificar el coste.
+
+---
+
+# Pipeline DL en Keras
+
+---
+
+## Preparación de ventanas
+
+Las RNN/LSTM esperan **tensores 3D**: `(batch, timesteps, features)`. Ejemplo: predecir $y_t$ desde $(y_{t-30}, ..., y_{t-1}, p_{t-1})$.
+
+. . .
+
+```{python}
+#| label: ventana-keras
+#| echo: true
+def crear_ventanas(serie, ventana=30, horizonte=1):
+    valores = serie.values
+    X, y = [], []
+    for i in range(len(valores) - ventana - horizonte + 1):
+        X.append(valores[i:i+ventana])
+        y.append(valores[i+ventana+horizonte-1])
+    return np.array(X)[..., None], np.array(y)   # (N, ventana, 1)
+
+X, y = crear_ventanas(CAUDAL.dropna()['1995':'2010'], ventana=30)
+print(f'X shape: {X.shape}   y shape: {y.shape}')
+```
+
+. . .
+
+**Atajo de Keras:** `keras.utils.timeseries_dataset_from_array(...)` hace lo mismo con menos código.
+
+---
+
+## Normalización (y sus trampas)
+
+Las redes necesitan inputs **estandarizados** (media 0, std 1). **Pitfall:** ajusta el escalador SÓLO en el train.
+
+```python
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train_raw)
+X_test  = scaler.transform(X_test_raw)        # solo transform
+```
+
+. . .
+
+Para series con cola larga (caudal con eventos): `RobustScaler` o `log` antes de escalar.
+
+> **Recuerda invertir** al final: tus métricas (NSE, KGE) van en la escala original.
+
+---
+
+## Modelo y entrenamiento
+
+```python
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, Dropout, Input
+from keras.callbacks import EarlyStopping, ReduceLROnPlateau
+
+model = Sequential([
+    Input(shape=(30, n_features)),
+    LSTM(64, return_sequences=False),
+    Dropout(0.2),
+    Dense(1),
+])
+model.compile(optimizer="adam", loss="mse")
+
+callbacks = [
+    EarlyStopping(patience=10, restore_best_weights=True),
+    ReduceLROnPlateau(patience=5, factor=0.5),
+]
+model.fit(X_train, y_train, validation_split=0.1,
+          epochs=100, batch_size=64, callbacks=callbacks)
+```
+
+. . .
+
+**Pitfall: `validation_split`** baraja por defecto. Para series usar **`validation_data=(X_val, y_val)`** con val temporal.
+
+---
+
+## Regularización en LSTM
+
+| Técnica | Función | Cuándo usar |
+|---|---|---|
+| `Dropout(p)` | apaga $p$ % de neuronas | siempre, en datasets pequeños |
+| `recurrent_dropout` | dropout en gates | si el train sigue overfit |
+| `kernel_regularizer=l2(λ)` | weight decay | redes profundas |
+| `EarlyStopping` | detiene en plateau | siempre |
+| `BatchNormalization` | normaliza activaciones | redes muy profundas (raro en LSTM) |
+
+. . .
+
+**Regla:** empieza con `Dropout(0.2)` + `EarlyStopping(patience=10)`. Si todavía overfit, sube el dropout antes de quitar capacidad.
+
+---
+
+## Múltiples semillas
+
+Las redes neuronales son **estocásticas**: misma arquitectura, distinta inicialización → distintas predicciones.
+
+```python
+predicciones = []
+for seed in range(5):
+    keras.utils.set_random_seed(seed)
+    model = construir_modelo()
+    model.fit(X_train, y_train, epochs=50, verbose=0)
+    predicciones.append(model.predict(X_test).flatten())
+
+media = np.mean(predicciones, axis=0)
+std   = np.std(predicciones, axis=0)
+```
+
+. . .
+
+**Reporta siempre la media (±std) sobre varias semillas.** Una sola seed es ruido.
+
+---
+
+## NeuralHydrology — el referente del DL hidrológico
+
+[`neuralhydrology`](https://neuralhydrology.readthedocs.io/) (Kratzert et al., JKU Linz):
+
+- LSTM, EA-LSTM, MTS-LSTM específicos para *rainfall-runoff*.
+- Soporta **multi-basin** (entrenar con cientos de cuencas).
+- Configuración por **archivo YAML**, no código Python.
+
+. . .
+
+```yaml
+# config.yml — extracto
+model: cudalstm
+hidden_size: 64
+seq_length: 365
+target_variables: [QObs]
+dynamic_inputs: [precipitation, temperature]
+static_attributes: [area, slope_mean, ...]
+```
+
+. . .
+
+**No lo usamos para enseñar a programar DL** (no se escribe Python), sino como **referencia**. En el notebook 02 hay una demo de inferencia con un modelo pre-entrenado.
+
+---
+
+## Mapa final del curso
+
+```{mermaid}
+flowchart TD
+  S1[Sesión 1<br/>Fundamentos<br/>STL, ACF, limpieza] --> S2
+  S2[Sesión 2<br/>ARIMA, ETS<br/>Prophet, Pastas] --> S3
+  S3[Sesión 3<br/>ML clásico<br/>RF, XGBoost, SHAP] --> S4
+  S4[Sesión 4<br/>LSTM, GRU<br/>NeuralHydrology]
+  S4 --> P[Proyecto final<br/>Comparación end-to-end]
+```
+
+. . .
+
+**Lo que te llevas:** un pipeline reproducible (carga → limpieza → modelado → evaluación) que puedes aplicar a CUALQUIER serie hidrológica.
+
+---
+
+## Próximos pasos
+
+**Práctica (2h):**
+
+1. `01_lstm_caudal_keras.ipynb` (1h) — preparar ventanas, LSTM, callbacks, predicción.
+2. `02_comparacion_y_neuralhydrology.ipynb` (30 min) — comparativa final + demo NeuralHydrology.
+3. `03_interpretabilidad_y_errores.ipynb` (15 min) — SHAP recap + análisis por régimen.
+
+. . .
+
+**Proyecto final (1h 30min):** `notebooks/sesion4/proyecto_final/` — pipeline completo sobre caudal o piezometría.
+
+# ¡Gracias!
+
+Hasta aquí el curso. Dudas finales y debate.
