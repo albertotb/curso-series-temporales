@@ -19,14 +19,17 @@ dependencies = [
     "plotly>=5.20",
     # Series temporales (estadística clásica)
     "statsmodels>=0.14",
-    "pmdarima>=2.0",
     "pastas>=1.5",
-    # Machine learning clásico
+    "prophet>=1.1",
+    # Machine learning clásico + forecasting
     "scikit-learn>=1.4",
     "xgboost>=2.0",
     "lightgbm>=4.3",
-    # Deep learning (elegir uno; instalamos ambos como opción durante el curso)
-    "torch>=2.2",
+    "skforecast>=0.13",
+    "shap>=0.45",
+    # Deep learning (Sesión 4)
+    "tensorflow>=2.16",
+    "keras>=3.0",
     # Notebook / interactividad
     "jupyterlab>=4.1",
     "ipykernel>=6.29",

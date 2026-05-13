@@ -2,13 +2,10 @@
 
 ## Información general
 
-- **Duración:** 20 horas
-- **Estructura:** 4 sesiones de 5 horas
+- **Duración:** 20 horas (4 sesiones × 5 h = 4,5 h de contenido + 0,5 h descanso por sesión)
 - **Idioma:** Español
 - **Enfoque:** Aplicado a series temporales hidrometeorológicas (caudales y piezometría)
-- **Programa de referencia:** `Programa_curso_v3.docx`
-
-> **Nota:** El programa actual (`v3`) indica sesiones de 4,5 h (total 18 h). El curso final será de **5 h por sesión / 20 h totales**, por lo que habrá que redistribuir tiempos al desarrollar los materiales.
+- **Programa de referencia:** `docs/Programa_curso_v3.docx` (currículo detallado en `curriculum.md`)
 
 ## Objetivos
 
@@ -20,28 +17,27 @@ No es un curso de hidro(geo)logía, sino de modelos de series temporales **aplic
 
 ## Programa (resumen)
 
-### Sesión 1 — Fundamentos, preprocesamiento y modelos estadísticos (Módulos 1 y 2)
+Detalle bloque a bloque, tiempos y notebooks en [`curriculum.md`](curriculum.md).
 
-- Teoría/ejemplos: conceptos básicos (estacionariedad, tendencia, estacionalidad, ruido), descomposición STL, autocorrelación y correlación cruzada, manejo de outliers y faltantes, agregación temporal, ARIMA, suavizado exponencial, funciones de respuesta a impulsos (Pastas).
-- Práctica: carga, exploración, limpieza y visualización en Python (`pandas`, `Pastas`).
+### Sesión 1 — Fundamentos y exploración (3 h teoría + 1,5 h práctica)
 
-### Sesión 2 — Modelos estadísticos / Pastas (Módulo 2)
+- Teoría: definición y tipos de series temporales hidrometeorológicas; componentes y estacionariedad; descomposición STL; autocorrelación (ACF/PACF) y correlación cruzada (CCF); limpieza de outliers, faltantes y agregación temporal.
+- Práctica: carga, limpieza y exploración en Python de la serie de caudal del Genil y la piezometría del Duero (`pandas`, `statsmodels`).
 
-- Práctica completa: ajuste ARIMA y exponencial, modelos con `Pastas`, validación y comparación.
+### Sesión 2 — Modelos estadísticos y Pastas (1 h 15 min teoría + 3 h 15 min práctica)
 
-### Sesión 3 — Machine Learning / Deep Learning (Módulo 3, teoría)
+- Teoría (1 h 15 min): AR/MA/ARMA/ARIMA/SARIMA/SARIMAX, Box–Jenkins, criterios de información, ETS, Prophet, Pastas (concepto).
+- Notebooks: SARIMAX + ETS en caudal, Prophet como baseline, Pastas con lluvia+extracciones, validación walk-forward y comparación con métricas hidrológicas (NSE, KGE, error en pico).
 
-- Introducción a ML supervisado para predicción.
-- Regresión lineal, Random Forest, Gradient Boosting.
-- Feature engineering para series temporales.
-- Redes neuronales recurrentes (LSTM, GRU); mención a TCN y Transformers.
-- Métricas y evaluación.
+### Sesión 3 — Machine Learning clásico, evaluación y splits (3 h teoría + 1,5 h práctica)
 
-### Sesión 4 — Machine Learning / Deep Learning + Caso práctico (Módulos 3 y 5)
+- Teoría: de serie temporal a problema supervisado; feature engineering (lags, rolling, calendario, Fourier); Ridge/Lasso, Random Forest, XGBoost, LightGBM con `skforecast`; estrategias multi-paso (recursive/direct); splits temporales y CV; métricas hidrológicas.
+- Práctica: matriz de features + baseline lineal; RF y XGBoost con `skforecast`; backtesting y métricas sobre la crecida de febrero 2026.
 
-- Práctica con `scikit-learn` y `TensorFlow`/`PyTorch`.
-- Variables retardadas, ventanas móviles, entrenamiento, evaluación e interpretación.
-- Proyecto final: pipeline completo (preprocesamiento → modelado → evaluación).
+### Sesión 4 — Deep Learning con demos + proyecto final (3 h DL guiado + 1,5 h proyecto)
+
+- Demos teoría-código en vivo (alumno reproduce en paralelo): RNN/LSTM/GRU; LSTM sobre el caudal del Genil con `tensorflow` + `keras` (preparación de ventanas, callbacks, regularización); comparación final estadísticos vs ML vs DL; demo de [`neuralhydrology`](https://neuralhydrology.readthedocs.io/) como referente del DL hidrológico moderno; interpretabilidad y análisis de errores.
+- Proyecto final guiado: pipeline completo sobre caudal o piezometría con elección libre de modelos.
 
 ## Datasets de ejemplo
 
@@ -77,14 +73,15 @@ No es un curso de hidro(geo)logía, sino de modelos de series temporales **aplic
 
 - **Slides teóricas:** [Quarto](https://quarto.org) (`.qmd`) renderizado a **reveal.js (HTML)**. Tema corporativo Komorebi en `slides/_theme/komorebi.scss`.
 - **Prácticas:** Jupyter notebooks (`.ipynb`).
-- **Gestión de dependencias:** [`uv`](https://docs.astral.sh/uv/). Python 3.11.
-- **Librerías clave:** `pandas`, `numpy`, `matplotlib`, `statsmodels`, `pmdarima`, `pastas`, `scikit-learn`, `xgboost`, `lightgbm`, `torch`, `jupyterlab`. Lista completa en `pyproject.toml`.
-- **Librerías candidatas a cubrir (a decidir al desarrollar los materiales):**
-  - [`skforecast`](https://skforecast.org/) — convierte modelos `scikit-learn` (RF, XGBoost, LightGBM, CatBoost) en forecasters recursivos/directos. Tutoriales nativos en español (Joaquín Amat).
-  - [`sktime`](https://www.sktime.net/) — marco unificado al estilo `scikit-learn` para forecasting, clasificación y clustering de series.
-  - Suite **Nixtla**: [`statsforecast`](https://nixtlaverse.nixtla.io/statsforecast/) (clásicos: AutoARIMA, AutoETS, TBATS), [`mlforecast`](https://nixtlaverse.nixtla.io/mlforecast/) (features automáticas + ML global), [`neuralforecast`](https://nixtlaverse.nixtla.io/neuralforecast/) (NBEATS, NHITS, TFT, PatchTST, iTransformer).
-  - [`prophet`](https://facebook.github.io/prophet/) — modelo aditivo bayesiano (tendencia + estacionalidad + holidays + changepoints). Buena baseline para series hidrológicas con estacionalidad anual fuerte; gestiona bien faltantes y outliers.
-  - [`darts`](https://unit8co.github.io/darts/) — librería "todo en uno" con 60+ modelos (ARIMA, Prophet, N-BEATS, TFT, LSTM, XGBoost, Chronos, TimesFM) bajo una API tipo `scikit-learn`. Útil pedagógicamente para comparar familias de modelos con el mismo código.
+- **Gestión de dependencias:** [`uv`](https://docs.astral.sh/uv/). Python ≥3.12.
+- **Librerías por sesión** (decisión tras la comparación documentada en `curriculum.md` §A):
+  - **Sesión 1 (fundamentos):** `pandas`, `numpy`, `matplotlib`, `statsmodels` (STL, ACF/PACF, tests).
+  - **Sesión 2 (modelos estadísticos + Pastas):** `statsmodels` (ARIMA/SARIMA/ETS + diagnóstico de residuos), [`prophet`](https://facebook.github.io/prophet/) (baseline aditivo con estacionalidad/holidays/changepoints), [`pastas`](https://pastas.readthedocs.io/) (modelos de respuesta a impulsos para piezometría).
+  - **Sesión 3 (ML + forecasting):** `scikit-learn`, `xgboost`, `lightgbm`, [`skforecast`](https://skforecast.org/) (convierte regresores sklearn en forecasters; **docs nativas en español** de Joaquín Amat), `shap` (interpretabilidad).
+  - **Sesión 4 (DL):** `tensorflow` + [`keras`](https://keras.io/) (LSTM/GRU con API de alto nivel y tutorial oficial de TS); [`neuralhydrology`](https://neuralhydrology.readthedocs.io/) como **demo de referencia** del DL hidrológico (Kratzert et al., JKU Linz) — se ejecuta vía YAML, no como librería de práctica.
+- Lista completa en `pyproject.toml`.
+
+Librerías evaluadas y **descartadas** (razonadas en `curriculum.md` §A.3): `pmdarima`, `statsforecast`, `mlforecast`, `neuralforecast`, `sktime`, `darts`, `torch`/`pytorch-lightning`, `tsai`.
 
 ## Estructura del repositorio
 
