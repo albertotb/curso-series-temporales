@@ -48,4 +48,4 @@ data/processed/*.csv
 **/*.h5
 **/*.pt
 
-**/*.quarto_ipynb
+**/*.quarto_ipynb*
