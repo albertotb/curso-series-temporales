@@ -17,7 +17,7 @@ piezometría):
 
 ```
 data/raw/
-├── Datos_Piezometria_Red_Nivel_CHD (hasta diciembre 2024).xlsx
+├── piezometria_chd_2024-12.xlsx
 ├── anuario_aforos/                       # se crea con descargar_anuario_csv
 │   ├── GUADALQUIVIR_afliq.csv
 │   ├── GUADALQUIVIR_estaf.csv
@@ -40,7 +40,7 @@ from urllib3.util.ssl_ import create_urllib3_context
 RUTA_RAIZ = Path(__file__).resolve().parents[2]
 RUTA_RAW = RUTA_RAIZ / "data" / "raw"
 RUTA_ANUARIO = RUTA_RAW / "anuario_aforos"
-RUTA_PIEZO_XLSX = RUTA_RAW / "Datos_Piezometria_Red_Nivel_CHD (hasta diciembre 2024).xlsx"
+RUTA_PIEZO_XLSX = RUTA_RAW / "piezometria_chd_2024-12.xlsx"
 
 URL_ANUARIO_BASE = (
     "https://ceh-flumen64.cedex.es/anuarioaforos/anuario-2020-2021/{cuenca}/{archivo}"

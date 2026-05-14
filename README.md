@@ -42,7 +42,7 @@ Detalle bloque a bloque, tiempos y notebooks en [`curriculum.md`](curriculum.md)
 ## Datasets de ejemplo
 
 - **Aguas superficiales (caudales):** río Genil — punto `A20_GENIL_TOCON`, captando la crecida de febrero 2026. Lluvia representativa asociada: `P82_D_MENCIA`. Fuente: CH Guadalquivir (SAIH), [Datos históricos → Versión clásica](https://www.chguadalquivir.es/saih/DatosHistoricos.aspx).
-- **Aguas subterráneas (piezometría):** pozo `PZ0267014` cerca de Valladolid (cuenca del Duero), afectado por extracciones para regadío. Variable: `COTA PIEZOMÉTRICA` en la hoja `DATOS PIEZOMETRICOS` de `Datos_Piezometria_Red_Nivel_CHD (hasta diciembre 2024).xlsx`.
+- **Aguas subterráneas (piezometría):** pozo `PZ0267014` cerca de Valladolid (cuenca del Duero), afectado por extracciones para regadío. Variable: `COTA PIEZOMÉTRICA` en la hoja `DATOS PIEZOMETRICOS` de `piezometria_chd_2024-12.xlsx`.
 - **Meteorología:** nodo correspondiente de la rejilla AEMET. Coordenadas del nodo en la hoja `LISTADO_PUNTOS` del mismo Excel.
 
 ## Fuentes de datos (referencia general)
@@ -93,10 +93,9 @@ curso_series_temporales/
 ├── .python-version              # 3.11
 ├── _quarto.yml                  # Config global de Quarto
 ├── Programa_curso_v3.docx       # Programa de referencia
-├── Datos_Piezometria_*.xlsx     # Datos piezométricos
 ├── data/
-│   ├── raw/                     # Datos crudos descargados (no versionados)
-│   └── processed/               # Datos procesados (no versionados)
+│   ├── raw/                     # Datos crudos (versionados): aforos, piezometría, lluvia
+│   └── processed/               # Datos procesados (no versionados, regenerables)
 ├── slides/
 │   ├── _theme/
 │   │   └── komorebi.scss        # Tema Quarto reveal.js (paleta Komorebi)
