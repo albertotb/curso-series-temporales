@@ -30,5 +30,5 @@ quarto preview slides/sesion1/sesion1.qmd # preview en vivo
 ## Convenciones
 
 - Una carpeta por sesión, tanto en `slides/` como en `notebooks/`.
-- Datos crudos en `data/raw/` (no se versiona el contenido, solo `.gitkeep`).
+- Datos crudos en `data/raw/` (versionados; los procesados en `data/processed/` no).
 - No commitear outputs de notebooks (usar `nbstripout`).

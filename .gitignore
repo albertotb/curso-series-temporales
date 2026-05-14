@@ -34,9 +34,7 @@ Thumbs.db
 .idea/
 *.swp
 
-# Datos pesados (mantener solo lo procesado o referencias)
-data/raw/*
-!data/raw/.gitkeep
+# Datos procesados (regenerables desde data/raw)
 data/processed/*.parquet
 data/processed/*.csv
 !data/processed/.gitkeep
