@@ -7,7 +7,9 @@ project:
 # Cada sesión hereda de aquí; se puede sobreescribir en el YAML de cada .qmd.
 format:
   revealjs:
-    theme: serif
+    theme: [serif, slides/_theme/komorebi.scss]
+    width: 1280
+    height: 800
     footer: "Curso de Series Temporales con Python"
     slide-number: c/t
     show-slide-number: all

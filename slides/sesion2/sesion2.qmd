@@ -158,10 +158,13 @@ Extiende ARIMA con **estacionalidad** de periodo $s$:
 - $(P, D, Q)$: parte **estacional** (lags múltiplos de $s$).
 - $s$: período (12 si mensual con ciclo anual, 7 si diario con ciclo semanal, 24 si horario con ciclo diario).
 
-. . .
+---
+
+## SARIMA — ACF estacional del caudal
 
 ```{python}
 #| label: sarima-acf
+#| echo: false
 #| fig-cap: "ACF del caudal mensual — picos en lags 12, 24, 36"
 from statsmodels.graphics.tsaplots import plot_acf
 fig, ax = plt.subplots()
@@ -219,18 +222,19 @@ Si el diagnóstico falla → volver al paso 1 con otros órdenes.
 
 ```{python}
 #| label: diag-residuos
+#| echo: false
 #| fig-cap: "Diagnóstico del SARIMAX — `plot_diagnostics` en una línea"
 fig = modelo.plot_diagnostics(figsize=(10, 5))
 plt.tight_layout()
 ```
 
-. . .
+---
 
-Lo que debemos comprobar:
+## Diagnóstico — qué comprobar
 
-- Residuos sin patrón (top-left).
-- Histograma ~ normal y Q-Q lineal.
-- ACF de residuos plana.
+- **Residuos sin patrón** (top-left).
+- **Histograma ~ normal** y Q-Q lineal.
+- **ACF de residuos plana** (sin lags significativos).
 
 ---
 
@@ -242,9 +246,7 @@ $$
 \mathrm{AIC} = -2 \ln \mathcal{L} + 2 k, \qquad \mathrm{BIC} = -2 \ln \mathcal{L} + k \ln n
 $$
 
-- $\mathcal{L}$: verosimilitud.
-- $k$: número de parámetros.
-- $n$: tamaño muestral.
+- $\mathcal{L}$: verosimilitud. $k$: parámetros. $n$: tamaño muestral.
 
 . . .
 
@@ -295,10 +297,13 @@ print(f"β (tendencia) = {ets.params['smoothing_trend']:.3f}")
 print(f"γ (estacional) = {ets.params['smoothing_seasonal']:.3f}")
 ```
 
-. . .
+---
+
+## Holt-Winters — ajuste sobre el caudal
 
 ```{python}
 #| label: ets-fig
+#| echo: false
 #| fig-cap: "Ajuste Holt-Winters sobre el caudal mensual"
 fig, ax = plt.subplots()
 ax.plot(CAUDAL_M.dropna(), color="#1f6f8b", lw=0.8, label="observado")
@@ -340,7 +345,9 @@ $$
 - $h(t)$: efectos de **festivos** o eventos especiales.
 - $\varepsilon_t$: ruido.
 
-. . .
+---
+
+## Prophet — pros y contras
 
 **Diseñado para usuarios no estadísticos:**
 
@@ -416,7 +423,9 @@ $$
 - $\theta$: **respuesta a impulso unitario** (parametrizada, p. ej. distribución Gamma).
 - $h_0$: nivel base.
 
-. . .
+---
+
+## Respuesta a impulsos — diagrama de flujo
 
 ```{mermaid}
 flowchart LR
@@ -481,9 +490,9 @@ Y siempre: evaluar con métricas **hidrológicas** (NSE, KGE) además de RMSE/MA
 - **Box-Jenkins** sigue siendo la metodología base: identificar → estimar → diagnosticar → predecir.
 - **Métricas hidrológicas** (NSE, KGE, error en pico) > métricas genéricas para evaluar predicción de eventos.
 
-. . .
+---
 
-**Práctica (3h 15min):**
+## Práctica (3h 15min)
 
 1. `01_arima_ets_caudal.ipynb`
 2. `02_prophet_baseline.ipynb`

@@ -41,7 +41,7 @@ CAUDAL = ud.cargar_caudal_genil().loc["1995":"2020"]
 Última sesión del curso. **Formato mixto teoría-código en vivo.**
 
 - **1 h** de teoría: redes neuronales para series temporales.
-- **2 h** de práctica guiada en 3 notebooks (LSTM con Keras, comparación, interpretabilidad).
+- **2 h** de práctica guiada en 3 notebooks.
 - **1 h 30 min** de proyecto final autónomo.
 
 . . .
@@ -49,7 +49,7 @@ CAUDAL = ud.cargar_caudal_genil().loc["1995":"2020"]
 Al final habrás:
 
 - Entrenado tu primera LSTM sobre datos hidrológicos reales.
-- Comparado estadístico vs ML vs DL con el mismo split y métricas.
+- Comparado estadístico vs ML vs DL con el mismo split.
 - Producido un análisis de errores por régimen.
 
 ---
@@ -119,8 +119,6 @@ $$
 h_t = \tanh(W_x x_t + W_h h_{t-1} + b)
 $$
 
-. . .
-
 ```{mermaid}
 flowchart LR
   X1[x_1] --> R1[RNN] --> H1[h_1]
@@ -131,9 +129,11 @@ flowchart LR
   H3 --> Y[ŷ]
 ```
 
-. . .
+---
 
-**Problema:** gradientes que **explotan o se desvanecen** al retropropagar por muchos pasos. La RNN básica olvida lo que pasó hace 20 pasos.
+## RNN — el problema
+
+**Gradientes que explotan o se desvanecen** al retropropagar por muchos pasos. La RNN básica olvida lo que pasó hace 20 pasos.
 
 ---
 
@@ -145,6 +145,10 @@ Hochreiter & Schmidhuber (1997). Tres puertas controlan qué información fluye:
 - **Input gate** $i_t$: ¿qué de lo nuevo retengo?
 - **Output gate** $o_t$: ¿qué del estado expongo?
 
+---
+
+## LSTM — ecuaciones
+
 $$
 \begin{aligned}
 f_t &= \sigma(W_f [h_{t-1}, x_t] + b_f) \\
@@ -155,8 +159,6 @@ o_t &= \sigma(W_o [h_{t-1}, x_t] + b_o) \\
 h_t &= o_t \odot \tanh(c_t)
 \end{aligned}
 $$
-
-. . .
 
 **Memoria larga**: $c_t$ pasa información sin pasar por funciones que aplasten gradientes.
 
@@ -193,7 +195,9 @@ Cho et al. (2014). Une input + forget en una sola **update gate**; combina $c$ y
 - **Dilated** → campo receptivo crece exponencialmente con pocas capas.
 - Suele igualar a LSTM en muchas tareas con mejor paralelismo.
 
-. . .
+---
+
+## TCN — convoluciones dilatadas causales
 
 ```{mermaid}
 flowchart LR
@@ -206,9 +210,7 @@ flowchart LR
   C3 --> Y[ŷ_t]
 ```
 
-. . .
-
-**Fuera del scope del curso** (preferimos LSTM por su valor pedagógico). Búsqueda en `keras-tcn` si quieres explorar.
+> **Fuera del scope** del curso (preferimos LSTM por su valor pedagógico). `keras-tcn` si quieres explorar.
 
 ---
 
@@ -221,9 +223,9 @@ Vaswani et al. (2017) cambió NLP. En series temporales llegaron después:
 - **PatchTST** (2023): trata cada parche temporal como token.
 - **iTransformer** (2024): atención sobre series (no sobre tiempo).
 
-. . .
+---
 
-**Estado en hidrología (mayo 2026):**
+## Transformers — estado en hidrología (mayo 2026)
 
 - Mejoras marginales sobre LSTM en CAMELS y similares.
 - Coste computacional alto.
@@ -372,9 +374,7 @@ dynamic_inputs: [precipitation, temperature]
 static_attributes: [area, slope_mean, ...]
 ```
 
-. . .
-
-**No lo usamos para enseñar a programar DL** (no se escribe Python), sino como **referencia**. En el notebook 02 hay una demo de inferencia con un modelo pre-entrenado.
+> Lo usamos como **referencia**, no como vehículo para enseñar DL. En el notebook 02 hay una demo de inferencia con un modelo pre-entrenado.
 
 ---
 

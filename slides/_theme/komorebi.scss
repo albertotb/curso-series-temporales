@@ -1,0 +1,125 @@
+/*-- scss:defaults --*/
+
+// Komorebi — tema basado en `serif`. Ajustes orientados a densidad
+// vertical para que las slides con varios fragments quepan en 1280×800.
+
+// Tipografía: Source Serif Pro (Google Fonts). Sustituye a Palatino del
+// tema `serif`, cuyo fallback en Linux (FreeSerif) tiene métricas rotas
+// en algunas glifos en regular (notablemente la `r`).
+$font-family-sans-serif: "Source Serif Pro", Palatino, FreeSerif, serif !default;
+$presentation-font-family: "Source Serif Pro", Palatino, FreeSerif, serif !default;
+$presentation-heading-font: "Source Serif Pro", Palatino, FreeSerif, serif !default;
+
+/*-- scss:rules --*/
+
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+Pro:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap');
+
+.reveal,
+.reveal h1, .reveal h2, .reveal h3, .reveal h4,
+.reveal p, .reveal li, .reveal blockquote, .reveal figcaption {
+  font-family: "Source Serif Pro", Palatino, FreeSerif, serif;
+}
+
+// Subir el peso de los encabezados: semibold (600) queda con trazo fino
+// en Source Serif Pro y se ve "blando" sobre el gris #383d3d.
+.reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+  font-weight: 700;
+}
+
+.reveal {
+  // Listas y párrafos — mayor especificidad para vencer a `.reveal section p`
+  .slides section p {
+    margin: 0 0 0.35em 0;
+    line-height: 1.25;
+  }
+  .slides section ul,
+  .slides section ol {
+    margin: 0 0 0.35em 1.2em;
+  }
+  .slides section li {
+    line-height: 1.25;
+    margin-bottom: 0.1em;
+  }
+  .slides section li > ul,
+  .slides section li > ol {
+    margin-top: 0.05em;
+    margin-bottom: 0.15em;
+  }
+
+  // Encabezados — menos aire vertical
+  .slides section h1,
+  .slides section h2,
+  .slides section h3 {
+    margin-top: 0;
+    margin-bottom: 0.25em;
+    line-height: 1.1;
+  }
+
+  // Figuras: restringir alturas para que no monopolicen
+  .slides figure,
+  .slides .quarto-figure,
+  .slides .cell-output-display {
+    margin: 0.2em auto;
+  }
+  .slides figure img,
+  .slides figure svg,
+  .slides .cell-output-display img,
+  .slides .cell-output-display svg {
+    max-height: 360px;
+    width: auto;
+  }
+
+  // Diagramas mermaid: SVG generado tiene atributo height inline que
+  // ignora max-height de CSS. Forzamos vía !important.
+  .slides svg[id^="mermaid-"],
+  .slides .mermaid svg {
+    max-height: 320px !important;
+    height: auto !important;
+    width: auto;
+  }
+
+  // Quarto muestra el código fuente del bloque mermaid encima del diagrama.
+  // Lo ocultamos: el alumno ve la representación visual, no la sintaxis.
+  .slides .cell:has(svg[id^="mermaid-"]) .code-copy-outer-scaffold,
+  .slides .cell:has(svg[id^="mermaid-"]) > .sourceCode {
+    display: none;
+  }
+  .slides figcaption {
+    margin-top: 0.15em;
+    font-size: 0.55em;
+    line-height: 1.2;
+  }
+
+  // Bloques de código: fuente algo más pequeña y padding compacto
+  .slides div.sourceCode {
+    margin: 0.2em 0;
+  }
+  .slides pre {
+    padding: 0.3em 0.6em;
+    line-height: 1.15;
+  }
+  .slides pre,
+  .slides pre code {
+    font-size: 0.65em;
+  }
+
+  // Output de celdas (texto plano de print/df.head)
+  .slides .cell-output pre {
+    font-size: 0.55em;
+    line-height: 1.2;
+  }
+
+  // Tablas
+  .slides table {
+    font-size: 0.7em;
+  }
+  .slides th,
+  .slides td {
+    padding: 0.2em 0.5em;
+  }
+
+  // Espacio entre fragments
+  .slides .fragment {
+    margin-top: 0.05em;
+  }
+}

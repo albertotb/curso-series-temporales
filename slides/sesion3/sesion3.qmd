@@ -102,6 +102,10 @@ print(X.head())
 
 - Mes, día del año, día de la semana, año hidrológico.
 
+---
+
+## Tipos de features (cont.)
+
 **4. Fourier**
 
 - $\sin(2\pi t / s)$, $\cos(2\pi t / s)$ → estacionalidad continua.
@@ -116,7 +120,7 @@ print(X.head())
 
 ```{python}
 #| label: rolling-demo
-#| echo: true
+#| echo: false
 q = CAUDAL.dropna()
 feats = pd.DataFrame({
     "y": q,
@@ -131,6 +135,7 @@ print(feats.tail(5).round(2))
 
 ```{python}
 #| label: rolling-fig
+#| echo: false
 #| fig-cap: "Caudal vs media móvil 30 días — la suavización es la fuente del feature"
 ventana = CAUDAL.loc["2014":"2016"].dropna()
 fig, ax = plt.subplots()
@@ -197,9 +202,9 @@ print(df.dropna().tail(3).round(2))
 - Escalador `StandardScaler.fit_transform(X)` en el set completo → la media del test contamina el train.
 - `df['y_smooth'] = df['y'].rolling(30).mean()` y luego usar `y_smooth` como feature.
 
-. . .
+---
 
-**Regla:**
+## Fuga de información — regla práctica
 
 - Rolling **siempre** con `center=False`.
 - Escaladores: `fit` sólo en train, `transform` en test.
@@ -238,7 +243,9 @@ flowchart LR
 
 **Filosofía común:** mismo problema supervisado $X \to y$, distintos *bias-variance tradeoffs* y velocidades.
 
-. . .
+---
+
+## Panorama — comparativa rápida
 
 - **Lineal regularizado**: bias alto, varianza baja, interpretable.
 - **Bosques aleatorios**: baja varianza vía bagging, no extrapolan.
@@ -282,9 +289,9 @@ $$
 - **Lasso** ($L_1$): selección automática, descarta features.
 - **ElasticNet**: combinación.
 
-. . .
+---
 
-**Por qué lineal sigue siendo relevante:**
+## Lineal — por qué sigue siendo relevante
 
 - Cuando hay 50 lags + rolling + calendario, `LinearRegression` plana se sobreajusta. Ridge no.
 - Es la baseline justa contra la que comparar el resto.
@@ -322,6 +329,10 @@ $$
 - **XGBoost** (2014): estándar de facto en ML competitivo.
 - **LightGBM** (2017): histogram-based, **mucho más rápido** en datasets grandes.
 
+---
+
+## Gradient Boosting — hiperparámetros
+
 ```python
 import lightgbm as lgb
 model = lgb.LGBMRegressor(n_estimators=500, learning_rate=0.05,
@@ -350,7 +361,9 @@ shap_values = explainer(X_test)
 shap.plots.beeswarm(shap_values)
 ```
 
-. . .
+---
+
+## SHAP — para qué sirve
 
 **Útil para:**
 
@@ -386,8 +399,7 @@ preds = forecaster.predict(steps=30, exog=lluvia_test)
 
 - API uniforme para cualquier regresor sklearn-like.
 - Estrategias multi-paso (recursive, direct, MIMO).
-- Backtesting integrado.
-- Documentación nativa en español (cienciadedatos.net).
+- Backtesting integrado; docs en español (cienciadedatos.net).
 
 ---
 
@@ -425,9 +437,9 @@ flowchart LR
 
 . . .
 
-- **Idea:** entrenar un solo modelo de 1 paso. Re-aplicarlo $h$ veces, alimentando sus propias predicciones.
+- **Idea:** entrenar un modelo de 1 paso y re-aplicarlo $h$ veces.
 - **Pros:** un solo modelo; aprovecha la estructura autorregresiva.
-- **Contras:** **acumulación de error** — pequeños errores de paso 1 se amplifican en paso $h$.
+- **Contras:** **acumulación de error** — errores de paso 1 se amplifican en paso $h$.
 
 ---
 
@@ -525,10 +537,13 @@ for fold, (train_idx, test_idx) in enumerate(tscv.split(X)):
     ...
 ```
 
-. . .
+---
+
+## TimeSeriesSplit — visualización
 
 ```{python}
 #| label: tscv-fig
+#| echo: false
 #| fig-cap: "TimeSeriesSplit con n_splits=5 — train crece, test fijo"
 fig, ax = plt.subplots(figsize=(10, 3.4))
 colores = plt.cm.Blues(np.linspace(0.5, 1.0, 5))
@@ -607,9 +622,9 @@ $$
 - $0$ = igual de bueno que predecir la media.
 - $< 0$ = peor que predecir la media.
 
-. . .
+---
 
-**Rangos típicos** (Moriasi et al., 2015):
+## NSE — rangos típicos (Moriasi et al., 2015)
 
 | NSE | Calidad |
 |---|---|
@@ -649,9 +664,11 @@ $$
 - $\alpha = \sigma_p / \sigma_o$ — ratio de variabilidad.
 - $\beta = \mu_p / \mu_o$ — ratio de sesgo.
 
-. . .
+---
 
-**Ventaja:** descompone el error en **tres causas** independientes. Permite diagnosticar:
+## KGE — diagnóstico por componentes
+
+**Ventaja:** descompone el error en **tres causas** independientes:
 
 - KGE bajo porque $r$ es bajo → fase mal.
 - $\alpha$ lejos de 1 → amplitud mal.
@@ -661,11 +678,7 @@ $$
 
 ## Error en pico y PBIAS
 
-**Error en pico:**
-
-$$
-\mathrm{Err}_{pico} = \max(p) - \max(o)
-$$
+**Error en pico:** $\mathrm{Err}_{pico} = \max(p) - \max(o)$
 
 Importante en gestión de avenidas. Negativo (infraestimación) puede ser **catastrófico**.
 
@@ -677,9 +690,7 @@ $$
 \mathrm{PBIAS} = 100 \cdot \frac{\sum_t (o_t - p_t)}{\sum_t o_t}
 $$
 
-Negativo = sobreestima. Positivo = infraestima.
-
-Crítico para balance hídrico anual.
+Negativo = sobreestima. Positivo = infraestima. Crítico para balance hídrico anual.
 
 ---
 
