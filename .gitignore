@@ -1,3 +1,4 @@
+.env
 .playwright-cli
 
 # Python
@@ -39,6 +40,9 @@ data/processed/*.parquet
 data/processed/*.csv
 !data/processed/.gitkeep
 
+# AEMET chunks crudos (regenerables; el parquet final sí se versiona)
+data/raw/aemet/*/
+
 # Outputs de modelos
 **/checkpoints/
 **/runs/
@@ -47,3 +51,5 @@ data/processed/*.csv
 **/*.pt
 
 **/*.quarto_ipynb*
+
+**/*.quarto_ipynb

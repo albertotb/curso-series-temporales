@@ -38,11 +38,7 @@ CAUDAL_M = CAUDAL.resample("MS").mean().loc["1995":"2020"].interpolate("linear",
 LLUVIA_M = LLUVIA.resample("MS").sum().loc["1995":"2020"]
 ```
 
-# Bienvenida
-
-Sesión densa: **75 min de teoría** (todos los modelos clásicos) + **3 h 15 min de práctica** en 4 notebooks.
-
-. . .
+## Bienvenida {.section-divider}
 
 Datasets de hoy:
 
@@ -52,7 +48,7 @@ Datasets de hoy:
 
 ---
 
-## Agenda
+## Índice
 
 1. **AR / MA / ARMA** — bloques de construcción.
 2. **ARIMA / SARIMA / SARIMAX** — la familia completa.
@@ -67,22 +63,48 @@ Y al final de cada bloque, un mini-mapa de **cuándo elegir cuál**.
 
 ---
 
-# Familia ARIMA
+## Familia ARIMA {.section-divider}
 
 ---
 
 ## Panorama de modelos clásicos
 
-```{mermaid}
-flowchart LR
-  AR[AR<br/>autoregresivo] --> ARMA
-  MA[MA<br/>media móvil] --> ARMA[ARMA]
-  ARMA --> ARIMA[ARIMA<br/>+ diferenciación]
-  ARIMA --> SARIMA[SARIMA<br/>+ estacionalidad]
-  SARIMA --> SARIMAX[SARIMAX<br/>+ covariables]
-```
+::: {.model-flow}
+::: {.model-stack}
+::: {.model-box}
+**AR**<br/>autoregresivo
+:::
+::: {.model-box}
+**MA**<br/>media móvil
+:::
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**ARMA**
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**ARIMA**<br/>+ diferenciación
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**SARIMA**<br/>+ estacionalidad
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**SARIMAX**<br/>+ covariables
+:::
+:::
 
-Todos comparten una **filosofía**: el siguiente valor se expresa como combinación lineal del pasado (de la propia serie y/o de los errores), más posiblemente lluvia, temperatura, etc.
+Todos comparten una **filosofía**: el siguiente valor se expresa como combinación lineal del pasado (de la propia serie y/o de los errores) y opcionalmente otras variables exógenas.
 
 ---
 
@@ -238,29 +260,49 @@ plt.tight_layout()
 
 ---
 
+## Verosimilitud (likelihood) en 60 segundos
+
+Dado un modelo con parámetros $\theta$ y datos $y_1, \ldots, y_n$, la **verosimilitud** es:
+
+$$
+\mathcal{L}(\theta) = p(y_1, \ldots, y_n \mid \theta)
+$$
+
+la probabilidad (densidad) de **observar precisamente esos datos** si el modelo y sus parámetros fueran ciertos.
+
+. . .
+
+**En ARIMA/ETS con errores gaussianos** asumimos $\varepsilon_t = y_t - \hat y_t \sim \mathcal{N}(0, \sigma^2)$, así que
+
+$$
+\ln \mathcal{L} = -\frac{n}{2} \ln(2\pi\sigma^2) \;-\; \frac{1}{2\sigma^2}\sum_t \varepsilon_t^2
+$$
+
+(maximizar $\ln \mathcal{L}$ equivale a **minimizar la suma de cuadrados de los residuos** cuando $\sigma$ es libre).
+
+---
+
 ## Selección de modelo — AIC, BIC, AICc
 
-Cuanto más bajo, mejor:
+> Añadir parámetros **siempre** aumenta $\ln \mathcal{L}$ (sobre los datos observados). Hay que penalizar complejidad ⇒ AIC/BIC.
+
+Penalizan el ajuste según los parámetros usados. Cuanto más bajo, mejor:
 
 $$
 \mathrm{AIC} = -2 \ln \mathcal{L} + 2 k, \qquad \mathrm{BIC} = -2 \ln \mathcal{L} + k \ln n
 $$
 
-- $\mathcal{L}$: verosimilitud. $k$: parámetros. $n$: tamaño muestral.
+$k$ = nº de parámetros del modelo, $n$ = tamaño muestral.
 
 . . .
 
 - **AIC** premia ajuste; tolera modelos más grandes.
-- **BIC** penaliza más; prefiere modelos parsimoniosos.
-- **AICc** = AIC corregido para $n$ pequeño.
-
-. . .
-
-**Regla:** explora un rango $(p,d,q)(P,D,Q,s)$ y quédate con el de **AIC más bajo** que pase el diagnóstico de residuos.
+- **BIC** penaliza más; favorece modelos parsimoniosos.
+- **AICc** = AIC corregido para $n$ pequeño: $\mathrm{AIC} + \dfrac{2k(k+1)}{n-k-1}$.
 
 ---
 
-# Suavizado exponencial (ETS)
+## Suavizado exponencial (ETS) {.section-divider}
 
 ---
 
@@ -330,7 +372,7 @@ plt.tight_layout()
 
 ---
 
-# Prophet
+## Prophet {.section-divider}
 
 ---
 
@@ -347,17 +389,25 @@ $$
 
 ---
 
-## Prophet — pros y contras
+## Prophet vs SARIMAX — dos filosofías
 
-**Diseñado para usuarios no estadísticos:**
+SARIMAX impone al proceso una **forma muy concreta**: autoregresión lineal en los lags + diferenciación para forzar estacionariedad + una sola estacionalidad rígida. Prophet es **mucho más flexible** — encaja cualquier serie que se pueda descomponer en tendencia + ciclos + festivos.
 
-- Tolera **huecos** y fechas irregulares.
-- Detecta **changepoints** automáticamente.
-- API uniforme: `fit(df)` + `predict(future)`.
+|  | SARIMAX | Prophet |
+|---|---|---|
+| **Filosofía** | $y_t$ depende de $y_{t-1}, \ldots$ + errores pasados | $y(t)$ = tendencia + ciclos + festivos |
+| Modelo | Estocástico autoregresivo | Curva determinista + ruido |
+| Estacionariedad | Requerida (vía $d$) | No requerida |
+| Datos irregulares / NaN | Necesita rejilla | Tolerado nativamente |
+| Cambios de régimen | Refit manual | **Changepoints automáticos** |
+| Multi-estacionalidad | Una sola $s$ | Anual + semanal + diaria + custom |
+| Covariables exógenas | Sí | Sí (`add_regressor`) |
+| Escalabilidad | Bien con $n$ grande | Lento con $n > 10^4$ |
+| Mejor cuando... | Serie densa, estacionaria tras diff | Datos sucios, festivos, cambios |
 
 . . .
 
-**Limitación:** no escala bien a más de unos pocos miles de muestras o múltiples regresores correlacionados.
+**Regla mnemónica:** SARIMAX **exige** al proceso una forma rígida; Prophet **acepta** casi cualquier forma.
 
 ---
 
@@ -387,7 +437,7 @@ print(f"yhat[-3:] = {fc['yhat'].tail(3).round(2).tolist()} m³/s")
 
 ---
 
-# Pastas — piezometría con respuesta a impulsos
+## Pastas — piezometría con respuesta a impulsos {.section-divider}
 
 ---
 
@@ -409,32 +459,84 @@ ARIMA aquí no encaja. La filosofía cambia: en lugar de modelar $h_t$ vs su pas
 
 ---
 
-## Respuesta a impulsos — la idea
+## Marco matemático: Transfer Function Noise (TFN)
 
-Un estímulo (lluvia) en el instante $\tau$ produce una respuesta $\theta(t-\tau)$ que se suma:
+Pastas implementa un modelo **TFN** (Box & Jenkins, 1976; von Asmuth et al., 2002), una familia distinta de ARIMA puro:
 
 $$
-h(t) = h_0 + \sum_{\tau \le t} R(\tau) \cdot \theta(t - \tau) + \varepsilon(t)
+h(t) = d + \sum_{i=1}^{N} (\theta_i * s_i)(t) + n(t)
 $$
+
+---
+
+## TFN — términos del modelo
+
+- $s_i(t)$: **estímulos** o *stresses* (lluvia, bombeo, ET₀...).
+- $\theta_i$: **función de respuesta a impulso (IRF)** paramétrica (p. ej. Gamma, 2–3 params).
+- $*$: convolución — captura cómo y cuándo cada estímulo se propaga al nivel.
+- $n(t)$: ruido residual, AR(1) en **tiempo continuo** → tolera muestreo irregular.
+- $d$: nivel base.
+
+---
+
+## TFN vs SARIMAX — ¿por qué no usar SARIMAX?
+
+Ambos admiten exógenas, pero la **forma** de la respuesta cambia radicalmente:
+
+|  | SARIMAX | TFN (Pastas) |
+|---|---|---|
+| Cómo entra el estímulo | Coeficiente $\beta x_t$ (o $\sum_k \beta_k x_{t-k}$ a mano) | Convolución con IRF **paramétrica** |
+| Forma de la respuesta | Plana / impuesta por el usuario | Aprendida: escala, retardo al pico, decaimiento |
+| Nº params por estímulo | $1$ (o $k$ si añades $k$ lags) | $2$–$3$ (Gamma: gain, shape, scale) |
+| Muestreo irregular | Necesita rejilla regular | Nativo (AR(1) continuo) |
+| Interpretación física | Limitada | Tiempo al pico, memoria del acuífero |
 
 . . .
 
-- $R(\tau)$: recarga (función de la lluvia).
-- $\theta$: **respuesta a impulso unitario** (parametrizada, p. ej. distribución Gamma).
-- $h_0$: nivel base.
+**Regla:** caudal denso con estacionalidad fuerte → SARIMAX. Piezometría sparsa, multi-década, respuesta diferida → TFN/Pastas.
 
 ---
 
 ## Respuesta a impulsos — diagrama de flujo
 
-```{mermaid}
-flowchart LR
-  P[Lluvia] --> R[Recarga]
-  B[Bombeo] --> S[Stress]
-  R --> C[Convolución θ]
-  S --> C
-  C --> H[Nivel piezométrico]
-```
+::: {.model-flow}
+::: {.model-stack}
+::: {.model-row}
+::: {.model-box}
+Lluvia
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+Recarga
+:::
+:::
+::: {.model-row}
+::: {.model-box}
+Bombeo
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+Stress
+:::
+:::
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+Convolución θ
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+Nivel piezométrico
+:::
+:::
 
 ---
 
@@ -459,11 +561,97 @@ Output típico:
 
 . . .
 
-> Pastas **no es** un wrapper de ARIMA — es un framework distinto, pensado específicamente para aguas subterráneas. Lo veremos a fondo en el notebook 03.
+> Pastas **no es** un wrapper de ARIMA: implementa un modelo **TFN** (Transfer Function Noise), pensado para sistemas con memoria larga y muestreo irregular. Lo veremos a fondo en el notebook 03.
 
 ---
 
-# Mapa final
+## En la práctica · poniendo el modelo a predecir {.section-divider}
+
+---
+
+## Forecasting en producción · la API
+
+Una vez ajustado el modelo, la API para predecir el futuro es uniforme:
+
+```python
+# Predicción puntual h pasos al futuro
+preds = modelo.forecast(steps=h)
+
+# Versión con incertidumbre
+fc   = modelo.get_forecast(steps=h)
+mu   = fc.predicted_mean
+ic95 = fc.conf_int(alpha=0.05)
+```
+
+. . .
+
+- `.forecast(h)` y `.predict(start, end)`: dos formas de pedir el mismo bloque.
+- **Prophet**: `m.make_future_dataframe(periods=h)` + `m.predict()`.
+- **Pastas**: `ml.simulate(tmax="2030-12-31")`.
+
+. . .
+
+**Regla:** las bandas crecen con $h$ — un pronóstico a 24 meses es **mucho menos certero** que uno a 1 mes. Comunica la incertidumbre, no solo la media.
+
+---
+
+## Pronóstico con intervalos · ejemplo
+
+```{python}
+#| label: fig-forecast
+#| echo: false
+#| fig-cap: "SARIMA — pronóstico a 24 meses con intervalos 80% y 95%"
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+# Asegurar índice con freq mensual ("MS") — si no, get_forecast devuelve
+# enteros que matplotlib interpreta como segundos desde 1970.
+serie_fit = CAUDAL_M.asfreq("MS")
+fit_demo = SARIMAX(serie_fit,
+                   order=(1,1,1), seasonal_order=(1,0,1,12)).fit(disp=False)
+fc = fit_demo.get_forecast(steps=24)
+mu   = fc.predicted_mean
+ic80 = fc.conf_int(alpha=0.20)
+ic95 = fc.conf_int(alpha=0.05)
+fig, ax = plt.subplots(figsize=(10, 4.0))
+ax.plot(CAUDAL_M.loc["2017":].index, CAUDAL_M.loc["2017":].values,
+        color="#1f6f8b", lw=1.2, label="observado")
+ax.plot(mu.index, mu.values, color="#c2410c", lw=1.6, label="pronóstico")
+ax.fill_between(ic80.index, ic80.iloc[:,0], ic80.iloc[:,1],
+                color="#c2410c", alpha=0.22, label="IC 80%")
+ax.fill_between(ic95.index, ic95.iloc[:,0], ic95.iloc[:,1],
+                color="#c2410c", alpha=0.10, label="IC 95%")
+ax.set_ylabel("Q (m³/s)"); ax.legend(loc="upper left", ncol=2)
+plt.tight_layout()
+```
+
+Las bandas se abren con el horizonte: la incertidumbre **no es opcional** en producción.
+
+---
+
+## Mantener el modelo al día
+
+Los datos nuevos llegan. Dos estrategias para no quedarse con calibración vieja:
+
+| Estrategia | Coste | Cadencia |
+|---|---|---|
+| **Refit completo** — re-estima todos los parámetros | Alto | Semana / mes |
+| **`.append(nuevos)`** — propaga Kalman, params fijos | Bajo | Cada paso |
+
+. . .
+
+```python
+modelo = modelo.append(pd.Series([nuevo_q], index=[nueva_fecha]))
+pred = modelo.forecast(steps=1)                  # rápido, cada paso
+
+modelo = SARIMAX(serie_completa, order=...).fit()  # lento, periódico
+```
+
+. . .
+
+**Receta:** `append` en cada paso, **refit cada $N$ pasos** (más no-estacionariedad ⇒ más refit). Lo formalizaremos como **walk-forward** en Sesión 3.
+
+---
+
+## Mapa final {.section-divider}
 
 ---
 
@@ -499,6 +687,6 @@ Y siempre: evaluar con métricas **hidrológicas** (NSE, KGE) además de RMSE/MA
 3. `03_pastas_piezometria.ipynb`
 4. `04_validacion_y_comparacion.ipynb`
 
-# ¡Gracias!
+## ¡Gracias! {.section-divider}
 
 Dudas y debate

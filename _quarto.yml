@@ -13,6 +13,7 @@ format:
     footer: "Curso de Series Temporales con Python"
     slide-number: c/t
     show-slide-number: all
+    hash-type: number          # URL queda como #/9 → quarto preview recarga en la misma slide
     transition: fade
     transition-speed: fast
     highlight-style: github

@@ -37,7 +37,7 @@ LLUVIA_M = ud.cargar_lluvia_mencia()        # Iznájar mensual ref_evap=5001
 PIEZO = ud.cargar_piezometria()             # PZ0267014 (Duero)
 ```
 
-# Bienvenida
+## Bienvenida {.section-divider}
 
 Curso de **4 sesiones (5 h cada una)** centrado en series temporales hidrometeorológicas en Python.
 
@@ -48,13 +48,13 @@ Curso de **4 sesiones (5 h cada una)** centrado en series temporales hidrometeor
 
 ---
 
-## Agenda de hoy
+## Índice
 
-1. ¿Qué es una serie temporal? — *30 min*
-2. Componentes y estacionariedad — *1 h*
-3. Autocorrelación y correlación cruzada — *45 min*
-4. Limpieza y agregación — *45 min*
-5. Práctica guiada en notebooks — *1 h 30 min*
+1. ¿Qué es una serie temporal?
+2. Componentes y estacionariedad
+3. Autocorrelación y correlación cruzada
+4. Limpieza y agregación
+5. Práctica guiada en notebooks
 
 . . .
 
@@ -66,7 +66,7 @@ Curso de **4 sesiones (5 h cada una)** centrado en series temporales hidrometeor
 
 ---
 
-# Bloque 1 · ¿Qué es una serie temporal?
+## Bloque 1 · ¿Qué es una serie temporal? {.section-divider}
 
 ---
 
@@ -122,13 +122,12 @@ Se observan: estacionalidad anual, eventos extremos, gaps.
 - Descripción / EDA.
 - Predicción puntual a corto/medio plazo.
 - Detección de eventos extremos (crecida, sequía).
-- Predicción probabilística (mención).
 
 ---
 
 ## Por qué no vale el train/test aleatorio
 
-Con datos i.i.d.: barajar y dividir 80/20 es válido. Con series:
+Con datos i.i.d.: dividir aleatoriamente 80/20 es válido. Con series:
 
 . . .
 
@@ -138,32 +137,39 @@ Con datos i.i.d.: barajar y dividir 80/20 es válido. Con series:
 
 . . .
 
-**Regla:** train/val/test cronológicos (`X[:t1]`, `X[t1:t2]`, `X[t2:]`).
-Cuando queramos CV: *walk-forward* o expanding window (sesión 3).
+**Regla:** train/val/test respetando la secuencia temporal (`X[:t1]`, `X[t1:t2]`, `X[t2:]`).
+Para validación cruzada usamos: *walk-forward* o expanding window (sesión 3).
 
 ---
 
-## Caso del curso: crecida de feb 1985
+## Ejemplo: crecida de feb 1985
 
 ```{python}
 #| label: fig-crecida-1985
 #| echo: false
 #| fig-cap: "Evento extremo: crecida de febrero 1985 (Genil)"
+import matplotlib.dates as mdates
+from matplotlib.ticker import FuncFormatter
+MESES_ES = ["", "ene", "feb", "mar", "abr", "may", "jun",
+            "jul", "ago", "sep", "oct", "nov", "dic"]
 ventana = CAUDAL.loc["1985-01-15":"1985-03-15"]
 fig, ax = plt.subplots()
 ax.plot(ventana.index, ventana.values, color="#c2410c", lw=1.5, marker="o", ms=3)
 ax.axhline(ventana.dropna().quantile(0.95), color="grey", ls="--", lw=0.8,
            label="P95 del periodo")
 ax.set_xlabel("Fecha"); ax.set_ylabel("Caudal (m³/s)")
+ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO, interval=1))
+ax.xaxis.set_major_formatter(FuncFormatter(
+    lambda x, _: f"{mdates.num2date(x).day} {MESES_ES[mdates.num2date(x).month]}"))
 ax.legend()
 plt.tight_layout()
 ```
 
-Pico de **230 m³/s** el 11 de febrero. Predecir este tipo de eventos es el reto del curso.
+Pico de **230 m³/s** el 11 de febrero. Predecir este tipo de eventos únicamente con los valores de la series temporal es complejo.
 
 ---
 
-# Bloque 2 · Componentes y estacionariedad
+## Bloque 2 · Componentes y estacionariedad {.section-divider}
 
 ---
 
@@ -173,7 +179,7 @@ Un evento de lluvia produce una respuesta de caudal con forma característica:
 
 - **Subida** rápida (minutos–horas).
 - **Pico** $Q_p$.
-- **Recesión** aproximadamente exponencial: $Q(t) = Q_p \cdot e^{-t/\tau}$.
+- **Recesión** aproximadamente exponencial: $Q(t) = Q_p \cdot e^{-t/\tau}$, con $\tau$ = **tiempo de respuesta** característico de la cuenca (horas–días).
 - **Caudal base** (aporte subterráneo, lento).
 
 ---
@@ -200,9 +206,9 @@ plt.tight_layout()
 
 ## Qué implica esto para la modelización
 
-- La **autocorrelación alta** a lags bajos sale del flujo base + recesión, no es \"memoria\" estadística.
-- Los **picos** son casi impredecibles desde el caudal sólo → necesitan **lluvia** como covariable (CCF, sesión 2).
-- $\tau$ (tiempo de respuesta) es lo que la CCF intenta estimar.
+- La **dependencia entre observaciones cercanas** viene del flujo base y la recesión: es **mecánica**, no "memoria" estadística que un modelo sobre el caudal solo pueda explotar para predecir picos.
+- Los **picos** son casi impredecibles desde el caudal sólo → necesitan **lluvia** como covariable (lo veremos al final de este bloque y en sesión 2).
+- El **tiempo de respuesta** $\tau$ marca cuántos lags de lluvia hay que incluir en un modelo.
 - En piezometría aparece el mismo patrón pero $\tau$ es de **meses–años** (recarga lenta).
 
 . . .
@@ -265,7 +271,11 @@ En la práctica: si dudas, **prueba ambos** y compara residuos.
 
 ## Estacionariedad
 
-Una serie es **estrictamente estacionaria** si la distribución conjunta de
+**Intuición:** una serie es estacionaria tiene la misma media, misma variabilidad y misma forma de oscilar a lo largo del tiempo.
+
+. . .
+
+**Formal (estricta):** la distribución conjunta de
 $(y_{t_1}, ..., y_{t_k})$ es invariante a traslaciones temporales.
 
 . . .
@@ -280,6 +290,45 @@ Más práctico: **estacionariedad débil** (covarianza-estacionariedad):
 
 **¿Por qué importa?** Casi todos los modelos clásicos (ARMA, ARIMA) asumen
 que la serie es estacionaria — al menos tras transformarla.
+
+---
+
+## Estacionariedad — ejemplos
+
+```{python}
+#| label: fig-estacionariedad-demo
+#| echo: false
+#| fig-cap: "Cuatro series: dos estacionarias, dos no"
+np.random.seed(7)
+n = 240
+t = pd.date_range("2000-01", periods=n, freq="MS")
+
+ruido = np.random.normal(0, 1, n)
+
+phi = 0.7
+ar1 = np.zeros(n)
+eps = np.random.normal(0, 1, n)
+for i in range(1, n):
+    ar1[i] = phi * ar1[i-1] + eps[i]
+
+caminata = np.random.normal(0, 0.5, n).cumsum()
+caudal_m = CAUDAL.resample("MS").mean().loc["2000":"2019"]
+
+fig, axes = plt.subplots(4, 1, figsize=(11, 7))
+axes[0].plot(t, ruido, color="#1f6f8b", lw=0.6)
+axes[0].set_title("Ruido blanco — ✓ estacionaria (caso trivial)", fontsize=10, loc="left")
+axes[1].plot(t, ar1, color="#7c3aed", lw=0.8)
+axes[1].set_title(r"AR(1), $\phi=0.7$ — ✓ estacionariedad débil (con autocorrelación)", fontsize=10, loc="left")
+axes[2].plot(t, caminata, color="#c2410c", lw=0.8)
+axes[2].set_title("Caminata aleatoria — ✗ la media deriva", fontsize=10, loc="left")
+axes[3].plot(caudal_m.index, caudal_m.values, color="#16a34a", lw=0.8)
+axes[3].set_title("Caudal mensual del Genil — ✗ estacionalidad anual", fontsize=10, loc="left")
+plt.tight_layout()
+```
+
+. . .
+
+**Regla rápida (visual):** si la **media** o la **amplitud** parecen depender del tiempo (deriva, estacionalidad, varianza creciente), no es estacionaria. Si solo hay rachas alrededor de un nivel constante, **sí** lo es.
 
 ---
 
@@ -335,6 +384,7 @@ axes[1].set_ylabel("ΔQ")
 plt.tight_layout()
 ```
 
+
 ---
 
 ## Box-Cox — generalización paramétrica
@@ -372,6 +422,29 @@ print(f"λ óptimo (MLE): {lmbda:.3f}")
 
 ---
 
+## Yeo-Johnson — generalización para 0 y negativos
+
+Box-Cox **necesita $y > 0$**. Yeo-Johnson (2000) extiende la idea a $y \in \mathbb{R}$ tratando las partes positiva y negativa por separado:
+
+$$
+\psi(\lambda, y) = \begin{cases}
+\dfrac{(y+1)^\lambda - 1}{\lambda}, & y \ge 0 \\[6pt]
+-\dfrac{(-y+1)^{2-\lambda} - 1}{2-\lambda}, & y < 0
+\end{cases}
+$$
+
+. . .
+
+|  | Box-Cox | Yeo-Johnson |
+|---|---|---|
+| Dominio | $y > 0$ | $y \in \mathbb{R}$ |
+| Series con 0 o negativos | Hay que sumar un offset | Nativo |
+| Estimación de $\lambda$ | MLE | MLE |
+| Caso típico en hidrología | Caudales, niveles | Diferencias $\nabla Q$, anomalías, temperaturas |
+
+
+---
+
 ## Descomposición STL
 
 **STL** = Seasonal-Trend decomposition using **LOESS**. Cleveland et al. (1990).
@@ -381,6 +454,60 @@ print(f"λ óptimo (MLE): {lmbda:.3f}")
 - **Robusta** a outliers (a diferencia del clásico `seasonal_decompose`).
 - Permite estacionalidad que **cambia con el tiempo** (ventana ajustable).
 - Es **aditiva** (aplicar a $\log y$ si necesitas multiplicativa).
+
+---
+
+## ¿Qué es LOESS?
+
+**LOESS** (*LOcally Estimated Scatterplot Smoothing*, Cleveland 1979) = regresión local no paramétrica.
+
+. . .
+
+**Idea:** para cada $x_i$, ajusta un polinomio pequeño (lineal o cuadrático) usando solo los **vecinos cercanos** (ancho ventana, `frac`), ponderados por distancia.
+
+```{python}
+#| label: fig-loess-demo
+#| echo: false
+#| fig-cap: "LOESS con dos anchos de ventana sobre datos ruidosos"
+from statsmodels.nonparametric.smoothers_lowess import lowess
+np.random.seed(3)
+n = 120
+x = np.linspace(0, 10, n)
+y = np.sin(x) + 0.15*x + np.random.normal(0, 0.4, n)
+sm_local  = lowess(y, x, frac=0.15, return_sorted=True)
+sm_global = lowess(y, x, frac=0.6,  return_sorted=True)
+fig, ax = plt.subplots(figsize=(9, 3.2))
+ax.scatter(x, y, color="#1f6f8b", s=15, alpha=0.5, label="datos")
+ax.plot(sm_local[:, 0],  sm_local[:, 1],  color="#c2410c", lw=2, label="LOESS frac=0.15 (local)")
+ax.plot(sm_global[:, 0], sm_global[:, 1], color="#7c3aed", lw=2, label="LOESS frac=0.6 (global)")
+ax.legend(loc="upper left"); plt.tight_layout()
+```
+
+
+---
+
+## STL vs `seasonal_decompose` clásico
+
+`seasonal_decompose` es la **función** de statsmodels que implementa el método clásico (medias móviles, Persons 1919). Misma API que STL, otro algoritmo:
+
+. . .
+
+|  | Clásico (`seasonal_decompose`) | STL |
+|---|---|---|
+| Suavizado de tendencia | Media móvil de tamaño `period` | LOESS |
+| Estacionalidad | **Fija** (misma todos los años) | **Evoluciona** (ventana ajustable) |
+| Outliers | Sensible | Robusto (`robust=True`) |
+| Aditiva / multiplicativa | Ambas (`model="additive"/"multiplicative"`) | Solo aditiva (aplicar `log` si hace falta) |
+| Bordes de la serie | Pierde `period/2` valores | Cubre toda la serie |
+| Cuándo usarla | Baseline rápido, didáctico | Análisis serio / producción |
+
+. . .
+
+```python
+from statsmodels.tsa.seasonal import seasonal_decompose, STL
+clasica = seasonal_decompose(serie, model="additive", period=12)
+stl     = STL(serie, period=12, robust=True).fit()
+```
 
 ---
 
@@ -405,7 +532,7 @@ plt.tight_layout()
 STL(serie, period=12, seasonal=13, trend=None, robust=True)
 ```
 
-- **`period`**: longitud del ciclo (12 mensual, 7 semanal, 365 diario anual).
+- **`period`**: longitud del ciclo en número de observaciones (depende de la frecuencia de la serie).
 - **`seasonal`**: ventana LOESS de estacionalidad (impar, ≥ 7). Pequeño → cambia rápido; grande → rígida.
 - **`trend`**: ventana de tendencia (por defecto $\approx 1.5 \cdot$`period`).
 - **`robust=True`**: descuenta outliers → **por defecto en hidrología**.
@@ -432,7 +559,7 @@ estructura que un modelo puede capturar.
 
 ---
 
-# Bloque 3 · Autocorrelación y correlación cruzada
+## Bloque 3 · Autocorrelación y correlación cruzada {.section-divider}
 
 ---
 
@@ -518,9 +645,9 @@ $$
 
 En hidrología, el ejemplo canónico:
 
-- $x_t = $ **lluvia**, $y_t = $ **caudal**.
+- $x_t$ = lluvia, $y_t$ = caudal.
 - Buscamos el lag $k^*$ donde $|\rho_{xy}(k)|$ es máximo
-  ⇒ tiempo de respuesta de la cuenca.
+  ⇒ es el **tiempo de respuesta** $\tau$ que vimos en el hidrograma, ahora estimado a partir de los datos.
 
 ---
 
@@ -542,7 +669,17 @@ ax.axvline(0, color="grey", ls="--", lw=0.5)
 plt.tight_layout()
 ```
 
-Pico hacia $k=1$–$2$ meses: la cuenca regulada responde con retardo.
+**Pico en $k=0$**, no donde "tocaba". Pasa por tres motivos que se acumulan:
+
+. . .
+
+1. **Resolución mensual**: la respuesta natural del Genil (días) queda absorbida en el mismo bucket que la lluvia.
+2. **Estacionalidad compartida**: lluvia y caudal pican en invierno → correlación a lag 0 sin causalidad lagged. Para verlo limpio habría que **pre-blanquear** la entrada (deseasonalizar o filtrar con ARIMA).
+3. **Cuenca regulada**: aguas arriba hay embalses (Quéntar, Canales). Las sueltas siguen calendarios de gestión, no las crecidas.
+
+. . .
+
+> En una **cuenca pequeña, no regulada, a resolución diaria**, esperaríamos ver el pico en $k=1$–$3$ días — el verdadero $\tau$ del hidrograma.
 
 ---
 
@@ -591,7 +728,7 @@ Box & Jenkins (1970) proponen una receta visual para identificar modelos ARMA:
 
 ---
 
-# Bloque 4 · Limpieza y agregación
+## Bloque 4 · Limpieza y agregación {.section-divider}
 
 ---
 
@@ -748,6 +885,6 @@ Para que tu análisis sea **reproducible y auditable**:
 
 **Siguiente paso:** notebooks 01-03 en `notebooks/sesion1/`.
 
-# ¡Gracias!
+## ¡Gracias! {.section-divider}
 
 Dudas y debate

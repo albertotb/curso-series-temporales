@@ -69,21 +69,6 @@ $presentation-heading-font: "Source Serif Pro", Palatino, FreeSerif, serif !defa
     width: auto;
   }
 
-  // Diagramas mermaid: SVG generado tiene atributo height inline que
-  // ignora max-height de CSS. Forzamos vía !important.
-  .slides svg[id^="mermaid-"],
-  .slides .mermaid svg {
-    max-height: 320px !important;
-    height: auto !important;
-    width: auto;
-  }
-
-  // Quarto muestra el código fuente del bloque mermaid encima del diagrama.
-  // Lo ocultamos: el alumno ve la representación visual, no la sintaxis.
-  .slides .cell:has(svg[id^="mermaid-"]) .code-copy-outer-scaffold,
-  .slides .cell:has(svg[id^="mermaid-"]) > .sourceCode {
-    display: none;
-  }
   .slides figcaption {
     margin-top: 0.15em;
     font-size: 0.55em;
@@ -121,5 +106,55 @@ $presentation-heading-font: "Source Serif Pro", Palatino, FreeSerif, serif !defa
   // Espacio entre fragments
   .slides .fragment {
     margin-top: 0.05em;
+  }
+
+  // Slides marcadas como "divisor de sección" — mismo look que el antiguo
+  // título de nivel-1 (centrado, h2 grande), pero sin nesting vertical (los
+  // urls quedan #/N en vez de #/H/V y `quarto preview` recarga sin perder
+  // la slide actual).
+  .slides section.section-divider {
+    text-align: center;
+  }
+  .slides section.section-divider h2 {
+    font-size: 2.2em;
+    margin-top: 1.2em;
+    margin-bottom: 0.4em;
+  }
+
+  // Diagramas hechos a mano con cajas y flechas
+  .slides .model-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3em;
+    margin: 0.6em auto 0.9em;
+    flex-wrap: nowrap;
+  }
+  .slides .model-flow .model-box {
+    border: 1px solid #888;
+    background: #f5f5f5;
+    border-radius: 4px;
+    padding: 0.3em 0.55em;
+    text-align: center;
+    font-size: 0.65em;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .slides .model-flow .model-box p {
+    margin: 0;
+  }
+  .slides .model-flow .model-arrow {
+    font-size: 0.9em;
+    color: #666;
+  }
+  .slides .model-flow .model-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+  }
+  .slides .model-flow .model-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3em;
   }
 }

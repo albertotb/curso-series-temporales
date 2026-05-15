@@ -36,18 +36,13 @@ CAUDAL = ud.cargar_caudal_genil().loc["1995":"2020"]
 LLUVIA = ud.cargar_lluvia_genil_diaria(fecha_inicio="1995-01-01", fecha_fin="2020-12-31")
 ```
 
-# Bienvenida
+## Bienvenida {.section-divider}
 
-**Hoy:** convertir series temporales en problemas supervisados, aplicar Random Forest / XGBoost / LightGBM con `skforecast`, y aprender a evaluar bien.
-
-. . .
-
-- Teoría densa: **3 h** (cinco bloques).
-- Práctica: **1 h 30 min** — features, baseline, RF/XGBoost, backtesting.
+**Hoy:** convertir series temporales en problemas supervisados, aplicar Random Forest / XGBoost / LightGBM con `scikit-learn`/`skforecast`, y evaluar calidad de los modelos.
 
 ---
 
-## Agenda
+## Índice
 
 1. **De serie a supervisado** — sliding window, feature engineering — *45 min*
 2. **Modelos clásicos de ML** — Ridge, RF, XGBoost, LightGBM — *45 min*
@@ -57,7 +52,7 @@ LLUVIA = ud.cargar_lluvia_genil_diaria(fecha_inicio="1995-01-01", fecha_fin="202
 
 ---
 
-# Bloque 1 · De serie a problema supervisado
+## Bloque 1 · De serie a problema supervisado {.section-divider}
 
 ---
 
@@ -190,6 +185,28 @@ print(df.dropna().tail(3).round(2))
 
 ---
 
+## Conexión con Pastas (Sesión 2)
+
+Lo que acabamos de construir — lags de lluvia + regresión — **es** un modelo de respuesta a impulsos:
+
+$$
+\hat y_t = \beta_0 + \sum_{k=0}^{K} \beta_k \cdot R_{t-k}
+$$
+
+Los $\beta_k$ forman la IRF **empírica, no paramétrica**: un peso por lag.
+
+. . .
+
+|  | Pastas (TFN) | ML con lluvia retardada |
+|---|---|---|
+| IRF | **Paramétrica** (Gamma, ~3 params) | **No paramétrica** ($K$ pesos $\beta_k$) |
+| Regularización | Prior en la forma de la IRF | Ridge / Lasso sobre $\beta_k$ |
+| Muestreo irregular | Nativo (AR(1) continuo) | Requiere rejilla regular |
+| No-linealidad | Solo en la convolución (lineal en estímulos) | RF / GBM la capturan |
+| Datos necesarios | Pocos | Más a mayor $K$ |
+
+---
+
 ## El pitfall clásico: fuga de información
 
 > El feature usa **información del futuro** que no estará disponible en producción.
@@ -216,7 +233,7 @@ print(df.dropna().tail(3).round(2))
 
 - Una serie temporal se convierte en problema supervisado con **lags + rolling + calendario + exógenas**.
 - La elección de features importa más que el modelo (en ML clásico).
-- **Fuga de información** es el enemigo silencioso.
+- Cuidado con filtrar información del futuro en los datos de entrenamiento.
 
 . . .
 
@@ -224,20 +241,40 @@ En el notebook 01 construirás la matriz de features para el caudal del Genil y 
 
 ---
 
-# Bloque 2 · Modelos clásicos de ML
+## Bloque 2 · Modelos clásicos de ML {.section-divider}
 
 ---
 
 ## Panorama
 
-```{mermaid}
-flowchart LR
-  L[Linear<br/>Ridge / Lasso] --> RF[Random Forest]
-  RF --> XGB[XGBoost]
-  XGB --> LGB[LightGBM]
-  XGB --> CB[CatBoost]
-  L -.-> BL[(baselines)]
-```
+::: {.model-flow}
+::: {.model-box}
+**Linear**<br/>Ridge / Lasso
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**Random Forest**
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**XGBoost**
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-stack}
+::: {.model-box}
+**LightGBM**
+:::
+::: {.model-box}
+**CatBoost**
+:::
+:::
+:::
 
 . . .
 
@@ -248,14 +285,15 @@ flowchart LR
 ## Panorama — comparativa rápida
 
 - **Lineal regularizado**: bias alto, varianza baja, interpretable.
-- **Bosques aleatorios**: baja varianza vía bagging, no extrapolan.
+- **Decision Trees**: poco bias, potencialmente mucha varianza (riesgo *overfitting*), interpretables
+- **Random Forest**: baja varianza vía bagging.
 - **Gradient Boosting** (XGB / LGB): aprendizaje secuencial, regularización fina.
 
 ---
 
 ## Baselines (siempre)
 
-Tres baselines que un modelo debe **batir** para ser publicable:
+Tres baselines que un modelo debe **batir** para ser usable:
 
 1. **Persistencia**: $\hat y_t = y_{t-1}$.
 2. **Persistencia estacional**: $\hat y_t = y_{t-s}$ (en caudal mensual, $s=12$).
@@ -288,14 +326,6 @@ $$
 - **Ridge** ($L_2$): bueno con muchas features correlacionadas (lags adyacentes).
 - **Lasso** ($L_1$): selección automática, descarta features.
 - **ElasticNet**: combinación.
-
----
-
-## Lineal — por qué sigue siendo relevante
-
-- Cuando hay 50 lags + rolling + calendario, `LinearRegression` plana se sobreajusta. Ridge no.
-- Es la baseline justa contra la que comparar el resto.
-- En cuencas reguladas, captura el 60-80% de la varianza.
 
 ---
 
@@ -412,7 +442,7 @@ preds = forecaster.predict(steps=30, exog=lluvia_test)
 
 ---
 
-# Bloque 3 · Predicción multi-paso
+## Bloque 3 · Predicción multi-paso {.section-divider}
 
 ---
 
@@ -426,14 +456,43 @@ Hasta ahora: predecir $y_{t+1}$ dado el pasado. Pero a menudo queremos $y_{t+1},
 
 ## Estrategia 1 — Recursiva
 
-```{mermaid}
-flowchart LR
-  M[Modelo único] --> P1[ŷ_{t+1}]
-  P1 -.feedback.-> M
-  M --> P2[ŷ_{t+2}]
-  P2 -.feedback.-> M
-  M --> P3[ŷ_{t+3}]
-```
+::: {.model-flow}
+::: {.model-box}
+**Modelo**
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+$\hat y_{t+1}$
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**Modelo**
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+$\hat y_{t+2}$
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**Modelo**
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+$\hat y_{t+3}$
+:::
+:::
+
+*(el mismo modelo aplicado recursivamente, alimentado con su predicción anterior)*
 
 . . .
 
@@ -445,12 +504,43 @@ flowchart LR
 
 ## Estrategia 2 — Directa
 
-```{mermaid}
-flowchart LR
-  M1[Modelo h=1] --> P1[ŷ_{t+1}]
-  M2[Modelo h=2] --> P2[ŷ_{t+2}]
-  M3[Modelo h=3] --> P3[ŷ_{t+3}]
-```
+::: {.model-flow}
+::: {.model-stack}
+::: {.model-row}
+::: {.model-box}
+**Modelo h=1**
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+$\hat y_{t+1}$
+:::
+:::
+::: {.model-row}
+::: {.model-box}
+**Modelo h=2**
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+$\hat y_{t+2}$
+:::
+:::
+::: {.model-row}
+::: {.model-box}
+**Modelo h=3**
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+$\hat y_{t+3}$
+:::
+:::
+:::
+:::
 
 - **Idea:** un modelo distinto para cada horizonte.
 - **Pros:** no propaga error. Cada modelo optimiza directamente su horizonte.
@@ -486,7 +576,7 @@ flowchart LR
 
 ---
 
-# Bloque 4 · Splits temporales
+## Bloque 4 · Splits temporales {.section-divider}
 
 ---
 
@@ -592,7 +682,7 @@ metricas, predicciones = backtesting_forecaster(
 
 ---
 
-# Bloque 5 · Métricas hidrológicas
+## Bloque 5 · Métricas hidrológicas {.section-divider}
 
 ---
 
@@ -705,7 +795,7 @@ En vez de un valor puntual, predecir **distribución**:
 . . .
 
 ```python
-# Ejemplo conformal con skforecast
+## Ejemplo conformal con skforecast {.section-divider}
 from skforecast.model_selection import ConformalIntervalForecaster
 ci_forecaster = ConformalIntervalForecaster(forecaster, alpha=0.1)
 ci_forecaster.fit(y_train, exog=X_train)
@@ -727,7 +817,7 @@ intervals = ci_forecaster.predict(steps=10, exog=X_test)
 
 ---
 
-# Mapa final
+## Mapa final {.section-divider}
 
 ---
 
@@ -755,6 +845,6 @@ intervals = ci_forecaster.predict(steps=10, exog=X_test)
 
 Mañana: **Deep Learning** sobre los mismos datos.
 
-# ¡Gracias!
+## ¡Gracias! {.section-divider}
 
 Dudas y debate

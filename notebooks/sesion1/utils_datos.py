@@ -29,6 +29,9 @@ data/raw/
 
 from __future__ import annotations
 
+import os
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -333,35 +336,192 @@ def cargar_lluvia_duero_diaria(**kwargs) -> pd.Series:
 
 
 # -----------------------------------------------------------------------------
-# 5. AEMET OpenData (placeholder)
+# 5. AEMET OpenData (precipitación diaria por estación)
 # -----------------------------------------------------------------------------
+
+URL_AEMET_DAILY = (
+    "https://opendata.aemet.es/opendata/api/valores/climatologicos/diarios/datos"
+    "/fechaini/{ini}/fechafin/{fin}/estacion/{idema}"
+)
+RUTA_AEMET = RUTA_RAW / "aemet"
+
+
+def _leer_api_key_aemet(api_key: str | None) -> str:
+    """Resuelve la API key: argumento → env var → .env del repo."""
+    if api_key:
+        return api_key
+    if v := os.environ.get("AEMET_API_KEY"):
+        return v
+    env_path = RUTA_RAIZ / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("AEMET_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    raise RuntimeError(
+        "Falta API key de AEMET. Pásala como `api_key=`, define la variable "
+        "de entorno `AEMET_API_KEY`, o añádela a `.env` en la raíz del repo."
+    )
+
+
+def _parse_prec_aemet(v) -> float:
+    """Parsea valor de precipitación AEMET → float en mm.
+
+    - "8,4"   → 8.4   (decimal coma)
+    - "Ip"    → 0.05  (lluvia inappreciable, < 0.1 mm)
+    - "Acum"  → NaN   (acumulada en otro día)
+    - None / "" → NaN
+    """
+    if v is None or v == "":
+        return float("nan")
+    if v == "Ip":
+        return 0.05
+    if v == "Acum":
+        return float("nan")
+    try:
+        return float(str(v).replace(",", "."))
+    except ValueError:
+        return float("nan")
+
+
+def _aemet_get(url: str, api_key: str, max_retries: int = 8) -> list:
+    """Realiza el flujo en dos pasos (meta → datos) con reintentos.
+
+    Reintenta con backoff exponencial en errores transitorios:
+    429 (rate limit), 5xx, y errores de red (`ConnectionError`, `Timeout`).
+    Devuelve `[]` si AEMET responde 404 (sin datos para ese rango).
+    """
+    transitorias = (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        requests.exceptions.ChunkedEncodingError,
+    )
+    for attempt in range(max_retries):
+        backoff = min(60, 2 ** attempt)  # 1, 2, 4, 8, 16, 32, 60, 60
+        try:
+            r = requests.get(url, params={"api_key": api_key}, timeout=60)
+        except transitorias:
+            time.sleep(backoff)
+            continue
+        if r.status_code in (429, 500, 502, 503, 504):
+            time.sleep(backoff)
+            continue
+        if r.status_code == 404:
+            return []  # estación sin datos para ese rango
+        r.raise_for_status()
+        meta = r.json()
+        estado = meta.get("estado")
+        if estado in (429, 500, 502, 503, 504):
+            time.sleep(backoff)
+            continue
+        if estado == 404:
+            return []
+        if estado != 200:
+            raise RuntimeError(f"AEMET error: {meta}")
+        time.sleep(0.5)
+        try:
+            r2 = requests.get(meta["datos"], timeout=120)
+        except transitorias:
+            time.sleep(backoff)
+            continue
+        if r2.status_code in (429, 500, 502, 503, 504):
+            time.sleep(backoff)
+            continue
+        r2.raise_for_status()
+        return r2.json()
+    raise RuntimeError(f"Demasiados reintentos para {url}")
+
+
+def _chunks_6_meses(fecha_inicio: str, fecha_fin: str):
+    """Yield (fechaIniStr, fechaFinStr) en chunks de 90 días.
+
+    AEMET admite hasta 6 meses por petición, pero chunks más pequeños son
+    más fiables (menos timeouts en series largas).
+    """
+    ini = datetime.fromisoformat(fecha_inicio)
+    fin = datetime.fromisoformat(fecha_fin)
+    paso = timedelta(days=90)
+    cursor = ini
+    while cursor <= fin:
+        chunk_fin = min(cursor + paso - timedelta(days=1), fin)
+        yield (
+            cursor.strftime("%Y-%m-%dT00:00:00UTC"),
+            chunk_fin.strftime("%Y-%m-%dT23:59:59UTC"),
+        )
+        cursor = chunk_fin + timedelta(days=1)
 
 
 def cargar_lluvia_aemet(
-    estacion: str,
-    fecha_inicio: str,
-    fecha_fin: str,
+    estacion: str = "5103E",
+    fecha_inicio: str = "1995-01-01",
+    fecha_fin: str = "2020-12-31",
     api_key: str | None = None,
+    forzar: bool = False,
 ) -> pd.Series:
-    """Lluvia diaria desde AEMET OpenData.
+    """Precipitación diaria (mm) desde AEMET OpenData para `estacion`.
 
-    *No implementado todavía*: AEMET OpenData requiere API key (gratis tras
-    registro en https://opendata.aemet.es/centrodedescargas/altaUsuario). El
-    endpoint de valores climatológicos diarios es:
+    Devuelve una `pd.Series` con índice diario regular (NaN en huecos).
 
-        GET https://opendata.aemet.es/opendata/api/valores/climatologicos/diarios/
-            datos/fechaini/{fechaIniStr}/fechafin/{fechaFinStr}/estacion/{idema}
+    Cachea de dos formas:
+    - Resultado final: `data/raw/aemet/<estacion>_<ini>_<fin>.parquet`.
+    - **Por chunk** (resumible): `data/raw/aemet/<estacion>/chunk_<ini>.json`,
+      uno por trozo de 90 días. Si el proceso falla por rate-limit, basta con
+      volver a llamar a la función para que continúe donde lo dejó.
 
-    Devuelve un JSON con una URL `datos` desde la que se descarga el array final.
+    Estaciones útiles para el curso (cuenca del Genil / Granada):
 
-    Cuando se complete: añadir cliente en este módulo y reemplazar
-    `cargar_lluvia_genil_diaria` / `cargar_lluvia_duero_diaria` para preferir
-    AEMET si la clave está disponible.
+    - **5530E**: GRANADA AEROPUERTO (valle, serie larga 1971–presente)
+    - 5514: GRANADA BASE AÉREA (similar)
+    - 5103E: CAMARATE 2, P.N. Sierra Nevada (datos limitados)
+
+    API key: pásala como argumento, define `AEMET_API_KEY` en el entorno, o
+    añádela a `.env` en la raíz del repo.
     """
-    raise NotImplementedError(
-        "AEMET OpenData necesita API key. Regístrate gratis en "
-        "https://opendata.aemet.es y pasa la clave en `api_key=`. "
-        "Mientras tanto, usa `cargar_lluvia_*_diaria()` (Open-Meteo)."
+    import json
+
+    RUTA_AEMET.mkdir(parents=True, exist_ok=True)
+    destino = RUTA_AEMET / f"{estacion}_{fecha_inicio}_{fecha_fin}.parquet"
+
+    if destino.exists() and not forzar:
+        df = pd.read_parquet(destino)
+        return pd.Series(
+            df["prec"].values,
+            index=pd.DatetimeIndex(df["fecha"].values, name="fecha"),
+            name=f"lluvia_aemet_{estacion}",
+        )
+
+    chunk_dir = RUTA_AEMET / estacion
+    chunk_dir.mkdir(parents=True, exist_ok=True)
+    key = _leer_api_key_aemet(api_key)
+
+    registros: list = []
+    chunks = list(_chunks_6_meses(fecha_inicio, fecha_fin))
+    for i, (ini, fin) in enumerate(chunks, 1):
+        chunk_file = chunk_dir / f"chunk_{ini[:10]}.json"
+        if chunk_file.exists() and not forzar:
+            registros.extend(json.loads(chunk_file.read_text(encoding="utf-8")))
+            continue
+        url = URL_AEMET_DAILY.format(ini=ini, fin=fin, idema=estacion)
+        data = _aemet_get(url, key)
+        chunk_file.write_text(json.dumps(data), encoding="utf-8")
+        registros.extend(data)
+        # Sleep proportionally to staying under AEMET's ~50 req/min budget.
+        # Each chunk makes 2 requests (meta + datos), so 3 s/chunk ≈ 40 req/min.
+        time.sleep(3.0)
+
+    df = pd.DataFrame({
+        "fecha": [pd.Timestamp(r["fecha"]) for r in registros],
+        "prec": [_parse_prec_aemet(r.get("prec")) for r in registros],
+    })
+    df = df.drop_duplicates(subset="fecha").sort_values("fecha")
+
+    idx = pd.date_range(fecha_inicio, fecha_fin, freq="D", name="fecha")
+    df = df.set_index("fecha").reindex(idx).reset_index().rename(columns={"index": "fecha"})
+    df.to_parquet(destino, index=False)
+
+    return pd.Series(
+        df["prec"].values,
+        index=pd.DatetimeIndex(df["fecha"].values, name="fecha"),
+        name=f"lluvia_aemet_{estacion}",
     )
 
 

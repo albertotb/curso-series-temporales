@@ -36,7 +36,7 @@ import utils_datos as ud
 CAUDAL = ud.cargar_caudal_genil().loc["1995":"2020"]
 ```
 
-# Bienvenida
+## Bienvenida {.section-divider}
 
 Última sesión del curso. **Formato mixto teoría-código en vivo.**
 
@@ -64,7 +64,7 @@ Al final habrás:
 
 ---
 
-# Bloque 4.1 · Redes neuronales para series temporales
+## Bloque 4.1 · Redes neuronales para series temporales {.section-divider}
 
 ---
 
@@ -119,15 +119,55 @@ $$
 h_t = \tanh(W_x x_t + W_h h_{t-1} + b)
 $$
 
-```{mermaid}
-flowchart LR
-  X1[x_1] --> R1[RNN] --> H1[h_1]
-  X2[x_2] --> R2[RNN]
-  H1 --> R2 --> H2[h_2]
-  X3[x_3] --> R3[RNN]
-  H2 --> R3 --> H3[h_3]
-  H3 --> Y[ŷ]
-```
+::: {.model-flow}
+::: {.model-stack}
+::: {.model-box}
+$x_1$
+:::
+::: {.model-box}
+**RNN**
+:::
+::: {.model-box}
+$h_1$
+:::
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-stack}
+::: {.model-box}
+$x_2$
+:::
+::: {.model-box}
+**RNN**
+:::
+::: {.model-box}
+$h_2$
+:::
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-stack}
+::: {.model-box}
+$x_3$
+:::
+::: {.model-box}
+**RNN**
+:::
+::: {.model-box}
+$h_3$
+:::
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+$\hat y$
+:::
+:::
+
+*(RNN desenrollada en 3 pasos; el estado $h_t$ se pasa al siguiente paso)*
 
 ---
 
@@ -199,16 +239,46 @@ Cho et al. (2014). Une input + forget en una sola **update gate**; combina $c$ y
 
 ## TCN — convoluciones dilatadas causales
 
-```{mermaid}
-flowchart LR
-  X[x_t-7] --> C1
-  X1[x_t-6] --> C1
-  X2[x_t-5] --> C1
-  X3[x_t-4] --> C1
-  C1[Conv causal d=1] --> C2[Conv causal d=2]
-  C2 --> C3[Conv causal d=4]
-  C3 --> Y[ŷ_t]
-```
+::: {.model-flow}
+::: {.model-stack}
+::: {.model-box}
+$x_{t-7}$
+:::
+::: {.model-box}
+$x_{t-6}$
+:::
+::: {.model-box}
+$x_{t-5}$
+:::
+::: {.model-box}
+$x_{t-4}$
+:::
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**Conv** $d=1$
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**Conv** $d=2$
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+**Conv** $d=4$
+:::
+::: {.model-arrow}
+→
+:::
+::: {.model-box}
+$\hat y_t$
+:::
+:::
 
 > **Fuera del scope** del curso (preferimos LSTM por su valor pedagógico). `keras-tcn` si quieres explorar.
 
@@ -237,7 +307,7 @@ Vaswani et al. (2017) cambió NLP. En series temporales llegaron después:
 
 ---
 
-# Pipeline DL en Keras
+## Pipeline DL en Keras {.section-divider}
 
 ---
 
@@ -380,14 +450,37 @@ static_attributes: [area, slope_mean, ...]
 
 ## Mapa final del curso
 
-```{mermaid}
-flowchart TD
-  S1[Sesión 1<br/>Fundamentos<br/>STL, ACF, limpieza] --> S2
-  S2[Sesión 2<br/>ARIMA, ETS<br/>Prophet, Pastas] --> S3
-  S3[Sesión 3<br/>ML clásico<br/>RF, XGBoost, SHAP] --> S4
-  S4[Sesión 4<br/>LSTM, GRU<br/>NeuralHydrology]
-  S4 --> P[Proyecto final<br/>Comparación end-to-end]
-```
+::: {.model-flow}
+::: {.model-stack}
+::: {.model-box}
+**Sesión 1** — Fundamentos · STL, ACF, limpieza
+:::
+::: {.model-arrow}
+↓
+:::
+::: {.model-box}
+**Sesión 2** — ARIMA, ETS · Prophet, Pastas
+:::
+::: {.model-arrow}
+↓
+:::
+::: {.model-box}
+**Sesión 3** — ML clásico · RF, XGBoost, SHAP
+:::
+::: {.model-arrow}
+↓
+:::
+::: {.model-box}
+**Sesión 4** — LSTM, GRU · NeuralHydrology
+:::
+::: {.model-arrow}
+↓
+:::
+::: {.model-box}
+**Proyecto final** — Comparación end-to-end
+:::
+:::
+:::
 
 . . .
 
@@ -407,6 +500,6 @@ flowchart TD
 
 **Proyecto final (1h 30min):** `notebooks/sesion4/proyecto_final/` — pipeline completo sobre caudal o piezometría.
 
-# ¡Gracias!
+## ¡Gracias! {.section-divider}
 
 Hasta aquí el curso. Dudas finales y debate.
