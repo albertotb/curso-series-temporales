@@ -12,8 +12,6 @@ format:
 ```{python}
 #| label: setup-global
 #| echo: false
-import sys, os
-sys.path.insert(0, os.path.abspath("../../notebooks/sesion1"))
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -30,10 +28,10 @@ plt.rcParams.update({
     "font.size": 11,
 })
 
-import utils_datos as ud
+from cst import datos as ud
 
 CAUDAL = ud.cargar_caudal_genil()           # Pinos-Genil ROEA 5020
-LLUVIA_M = ud.cargar_lluvia_mencia()        # Iznájar mensual ref_evap=5001
+LLUVIA_M = ud.cargar_lluvia_genil()        # Iznájar mensual ref_evap=5001
 PIEZO = ud.cargar_piezometria()             # PZ0267014 (Duero)
 ```
 
@@ -208,7 +206,7 @@ plt.tight_layout()
 
 - La **dependencia entre observaciones cercanas** viene del flujo base y la recesión: es **mecánica**, no "memoria" estadística que un modelo sobre el caudal solo pueda explotar para predecir picos.
 - Los **picos** son casi impredecibles desde el caudal sólo → necesitan **lluvia** como covariable (lo veremos al final de este bloque y en sesión 2).
-- El **tiempo de respuesta** $\tau$ marca cuántos lags de lluvia hay que incluir en un modelo.
+- El mismo $\tau$ de la recesión es la **memoria** de la cuenca: la lluvia caída hace $t$ días pesa $\propto e^{-t/\tau}$ en el caudal de hoy. En la práctica basta incluir lags hasta $\sim 3\tau$–$5\tau$.
 - En piezometría aparece el mismo patrón pero $\tau$ es de **meses–años** (recarga lenta).
 
 . . .
@@ -400,6 +398,7 @@ $$
 
 . . .
 
+$\lambda$ se estima automáticamente maximizando la verosimilitud:
 - $\lambda = 1$ → identidad.
 - $\lambda = 0.5$ → raíz (intermedia).
 - $\lambda = 0$ → logaritmo (estabiliza varianza proporcional).
@@ -432,16 +431,6 @@ $$
 -\dfrac{(-y+1)^{2-\lambda} - 1}{2-\lambda}, & y < 0
 \end{cases}
 $$
-
-. . .
-
-|  | Box-Cox | Yeo-Johnson |
-|---|---|---|
-| Dominio | $y > 0$ | $y \in \mathbb{R}$ |
-| Series con 0 o negativos | Hay que sumar un offset | Nativo |
-| Estimación de $\lambda$ | MLE | MLE |
-| Caso típico en hidrología | Caudales, niveles | Diferencias $\nabla Q$, anomalías, temperaturas |
-
 
 ---
 
@@ -669,17 +658,6 @@ ax.axvline(0, color="grey", ls="--", lw=0.5)
 plt.tight_layout()
 ```
 
-**Pico en $k=0$**, no donde "tocaba". Pasa por tres motivos que se acumulan:
-
-. . .
-
-1. **Resolución mensual**: la respuesta natural del Genil (días) queda absorbida en el mismo bucket que la lluvia.
-2. **Estacionalidad compartida**: lluvia y caudal pican en invierno → correlación a lag 0 sin causalidad lagged. Para verlo limpio habría que **pre-blanquear** la entrada (deseasonalizar o filtrar con ARIMA).
-3. **Cuenca regulada**: aguas arriba hay embalses (Quéntar, Canales). Las sueltas siguen calendarios de gestión, no las crecidas.
-
-. . .
-
-> En una **cuenca pequeña, no regulada, a resolución diaria**, esperaríamos ver el pico en $k=1$–$3$ días — el verdadero $\tau$ del hidrograma.
 
 ---
 

@@ -1,6 +1,6 @@
 # Ejercicios — Sesión 1
 
-Soluciones / pistas para los ejercicios propuestos en los notebooks 01, 02 y 03. Los snippets asumen que las celdas iniciales de cada notebook (`import utils_datos as ud`, carga de `caudal`, `lluvia_m`, `piezo`) ya se han ejecutado.
+Soluciones / pistas para los ejercicios propuestos en los notebooks 01, 02 y 03. Los snippets asumen que las celdas iniciales de cada notebook (`from cst import datos as ud`, carga de `caudal`, `lluvia_m`, `piezo`) ya se han ejecutado.
 
 ---
 
@@ -50,6 +50,60 @@ for _, r in sub.iterrows():
     ax.annotate(r["cod_saih"], (r["xetrs89"], r["yetrs89"]), fontsize=6, alpha=0.7)
 ax.set_aspect("equal"); ax.set_title("Estaciones ROEA con equivalente SAIH (UTM ETRS89)")
 ```
+
+### 1.5 Zoom evento feb-2026 (SAIH)
+
+```python
+# Si HistSAIH.xlsx está descargado, ud.cargar_caudal_genil() devuelve la
+# serie diaria del SAIH (2018-2026); el caudal antiguo del ROEA se carga
+# aparte para comparar.
+caudal_saih = ud.cargar_caudal_genil()
+caudal_roea = ud.cargar_anuario_caudal(5020)   # 1913-2020
+
+# Eventos
+v85 = caudal_roea.loc["1985-01-15":"1985-03-15"]
+v26 = caudal_saih.loc["2026-02-01":"2026-03-15"]
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.4), sharey=False)
+axes[0].plot(v85.index, v85.values, color="#c2410c", lw=1.5, marker="o", ms=3)
+axes[0].axhline(caudal_roea.quantile(0.95), color="grey", ls="--", lw=0.8)
+axes[0].set_title(f"Feb-1985  · pico {v85.max():.0f} m³/s")
+
+axes[1].plot(v26.index, v26.values, color="#0d9488", lw=1.5, marker="o", ms=3)
+axes[1].axhline(caudal_saih.quantile(0.95), color="grey", ls="--", lw=0.8)
+axes[1].set_title(f"Feb-2026  · pico {v26.max():.0f} m³/s")
+for ax in axes:
+    ax.set_ylabel("Caudal (m³/s)"); ax.grid(alpha=0.3)
+plt.tight_layout()
+
+print(f"1985: pico / P95(1913-2020) = {v85.max()/caudal_roea.quantile(0.95):.1f}×")
+print(f"2026: pico / P95(2018-2026) = {v26.max()/caudal_saih.quantile(0.95):.1f}×")
+```
+
+> *Discusión:* el SAIH `A20_GENIL_TOCON` mide río abajo de Pinos-Genil (donde corta el ROEA 5020), por lo que las magnitudes no son directamente comparables. La comparación relativa al P95 de cada serie es la honesta. El evento de feb-2026 supera con creces el P95 reciente, pero el de 1985 sigue siendo el máximo histórico no-regulado.
+
+### 1.6 Tres fuentes de lluvia diaria
+
+```python
+lluvia_saih = ud.cargar_lluvia_genil()   # SAIH A20_202, diaria 2018-2026
+lluvia_era5 = ud.cargar_lluvia_genil_diaria(
+    fecha_inicio="2018-01-01", fecha_fin="2024-12-31"
+)                                         # Open-Meteo ERA5 sobre Pinos-Genil
+
+df = pd.concat({"saih": lluvia_saih, "era5": lluvia_era5}, axis=1).dropna()
+print(f"Periodo solapado: {df.index.min().date()} → {df.index.max().date()}  "
+      f"({len(df)} días)")
+
+for col in df:
+    s = df[col]
+    print(f"  {col:5s}  total={s.sum():7.0f} mm   "
+          f"días >1 mm = {(s>1).sum():4d}   "
+          f"max diario = {s.max():.1f} mm")
+
+print(f"  correlación día-a-día: {df['saih'].corr(df['era5']):.2f}")
+```
+
+> *Discusión esperada:* la suma de ERA5 suele ser **mayor** porque el pixel de 25 km integra una zona con relieve (Sierra Nevada) más lluviosa que el punto del pluviómetro del valle. El número de "días lluviosos" también es mayor en ERA5: tiende a *manchar* eventos cortos. La correlación día-a-día ronda 0.5-0.7 — buena para tendencias, mediocre para eventos puntuales. Moraleja: usa ERA5 como **proxy regional**, no como sustituto del pluviómetro local.
 
 ---
 
@@ -106,6 +160,49 @@ print("Cobertura:", mensual.notna().mean() * 100, "%")
 ```
 
 > *Discusión:* dejamos los NaN tal cual. Para modelar más adelante (Pastas, sesión 2) el modelo trabaja con la estructura irregular sin necesidad de imputar.
+
+### 2.5 Outliers en lluvia diaria
+
+```python
+lluvia = ud.cargar_lluvia_genil().dropna()
+print(f"n={len(lluvia)}, fracción de ceros = {(lluvia==0).mean():.2%}")
+print(f"q25={lluvia.quantile(0.25):.1f}  q50={lluvia.quantile(0.5):.1f}  "
+      f"q75={lluvia.quantile(0.75):.1f}  q99={lluvia.quantile(0.99):.1f}  "
+      f"max={lluvia.max():.1f}")
+
+# 1) IQR clásico
+q1, q3 = lluvia.quantile([0.25, 0.75])
+iqr_out = lluvia > q3 + 1.5 * (q3 - q1)
+
+# 2) MAD (mediana ± 3.5·MAD)
+med = lluvia.median()
+mad = (lluvia - med).abs().median() * 1.4826
+mad_out = (lluvia - med).abs() > 3.5 * mad if mad > 0 else lluvia > 0
+
+# 3) Hampel ventana 30 días
+def hampel(s, w=30):
+    m = s.rolling(w, center=True, min_periods=5).median()
+    md = (s - m).abs().rolling(w, center=True, min_periods=5).median() * 1.4826
+    return ((s - m).abs() > 3.5 * md.replace(0, np.nan)).fillna(False)
+ham_out = hampel(lluvia, 30)
+
+for nombre, mask in [("IQR", iqr_out), ("MAD", mad_out), ("Hampel", ham_out)]:
+    print(f"{nombre:7s} marca {mask.mean()*100:5.2f}%  "
+          f"(valores mínimo marcado = {lluvia[mask].min():.1f} mm)")
+```
+
+> *Discusión:* todos los métodos fallan **estrepitosamente** porque con tantos ceros la mediana, q25 y q75 son 0 (o casi). Eso hace que cualquier lluvia no-nula entre en la "cola" estadística y aparezca como outlier — incluyendo lluvias perfectamente normales de 5 mm. La distribución 0-inflada con cola pesada **no es la hipótesis** de estos métodos. Alternativas:
+>
+> ```python
+> # (a) Trabajar en log(1+P) — comprime la cola, pero los ceros siguen pesando.
+> # (b) Cuantil alto sobre días lluviosos:
+> lluviosos = lluvia[lluvia > 1]
+> umbral = lluviosos.quantile(0.999)
+> print(f"P99.9 (días con P>1mm) = {umbral:.1f} mm — días por encima: {(lluvia>umbral).sum()}")
+>
+> # (c) Regla física: máximo histórico AEMET en Andalucía ≈ 800 mm/día.
+> # Cualquier valor > 200 mm/día merece inspección manual, no descarte automático.
+> ```
 
 ---
 
@@ -179,3 +276,65 @@ print(f"MAE persistencia: {mae_naive:.2f}   MAE impulso: {mae_modelo:.2f}")
 ```
 
 > *Conclusión esperada:* la persistencia mensual ya es **un baseline muy fuerte** para caudales regulados; el modelo impulso-respuesta lineal a 2 lags suele empatar o mejorar ligeramente. Spoiler: en sesión 2 veremos que **Pastas** generaliza esto con funciones de respuesta paramétricas para piezometría.
+
+### 3.6 CCF diario SAIH lluvia→caudal
+
+```python
+caudal_d = ud.cargar_caudal_genil()    # SAIH diario A20_GENIL_TOCON
+lluvia_d = ud.cargar_lluvia_genil()    # SAIH diario A20_202 (mismo cluster)
+df = pd.concat({"P": lluvia_d, "Q": caudal_d}, axis=1).dropna()
+print(f"Periodo: {df.index.min().date()} → {df.index.max().date()}  n={len(df)}")
+
+lags = list(range(-5, 31))
+ccf = [df["P"].corr(df["Q"].shift(-k)) for k in lags]
+
+fig, ax = plt.subplots(figsize=(9, 3.4))
+ax.bar(lags, ccf, width=0.85, color="#1f6f8b", alpha=0.8)
+ax.axhline(0, color="grey", lw=0.5)
+ax.axvline(0, color="grey", lw=0.5, ls="--")
+ax.set_xlabel("Lag (días, positivo = lluvia precede caudal)")
+ax.set_ylabel("Correlación")
+ax.set_title("CCF diario lluvia→caudal · SAIH A20")
+plt.tight_layout()
+
+k_opt = lags[int(np.argmax(ccf))]
+print(f"Lag óptimo: {k_opt} días  (corr = {max(ccf):.2f})")
+```
+
+> *Discusión esperada:* el pico aparece típicamente en **lag +1 a +5 días** — mucho más rápido y nítido que el lag mensual de 1-2 meses del ejercicio del notebook. La razón: aquí lluvia y caudal están en el **mismo punto físico** (cluster A20), mientras que el CCF mensual mezcla pluvio Iznájar (río abajo, mensual) con aforo Pinos-Genil (río arriba). La regulación de Iznájar todavía suaviza la cola: la correlación no cae a cero hasta 20+ días.
+
+### 3.7 CCF lluvia-piezometría con ERA5 (Duero)
+
+```python
+# ERA5 diario en la coordenada del piezómetro PZ0267014 (Valladolid)
+lluvia_duero = ud.cargar_lluvia_duero_diaria(
+    fecha_inicio="2010-01-01", fecha_fin="2024-12-31"
+)
+lluvia_m = lluvia_duero.resample("MS").sum()
+piezo_m  = ud.cargar_piezometria().resample("MS").mean()
+
+df = pd.concat({"P": lluvia_m, "piezo": piezo_m}, axis=1).dropna()
+print(f"Meses con dato: {len(df)}  ({df.index.min().date()} → {df.index.max().date()})")
+
+lags = list(range(-3, 25))
+ccf = [df["P"].corr(df["piezo"].shift(-k)) for k in lags]
+
+fig, ax = plt.subplots(figsize=(9, 3.4))
+ax.bar(lags, ccf, width=0.85, color="#0d9488", alpha=0.8)
+ax.axhline(0, color="grey", lw=0.5); ax.axvline(0, color="grey", lw=0.5, ls="--")
+ax.set_xlabel("Lag (meses, positivo = lluvia precede cota)")
+ax.set_ylabel("Correlación")
+ax.set_title("CCF lluvia ERA5 → cota piezométrica · PZ0267014")
+plt.tight_layout()
+
+k_opt = lags[int(np.argmax(ccf))]
+print(f"Lag óptimo: {k_opt} meses  (corr = {max(ccf):.2f})")
+```
+
+> *Discusión esperada:* el lag óptimo depende de la **profundidad y conexión del acuífero**. En PZ0267014 (Duero medio, Renedo de Esgueva) aparece un máximo modesto en 1-6 meses con correlación baja (≈ 0.2). Razones del bajo valor:
+>
+> - La cota piezométrica responde a **bombeos agrícolas** y recarga lateral del río, no sólo a lluvia local.
+> - El píxel ERA5 (~25 km) puede no capturar bien la lluvia efectiva sobre la zona de recarga.
+> - Las mediciones del pozo son **irregulares** (mensual con huecos): tras alinear queda poco solapamiento útil.
+>
+> Comparando con el CCF lluvia→caudal del 3.6 (lag de días, corr 0.4), aquí el sistema es claramente más lento y peor explicado por la lluvia puntual. Esto motiva los modelos paramétricos de **Pastas** (sesión 2), donde la respuesta se modela con una función de transferencia (Gamma/exponencial) en lugar de un único lag puntual.

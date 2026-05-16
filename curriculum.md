@@ -7,7 +7,7 @@
 > **Datasets de referencia:**
 >
 > - Caudal: `A20_GENIL_TOCON` (río Genil — CH Guadalquivir), foco en la crecida de **febrero 2026**.
-> - Lluvia: `P82_D_MENCIA` (mismo SAIH).
+> - Lluvia: `A20_202` (mismo SAIH).
 > - Piezometría: `PZ0267014` (cuenca del Duero) — `COTA PIEZOMÉTRICA`.
 > - Meteo: nodo AEMET asociado al pozo.
 
@@ -53,7 +53,7 @@
 ### Práctica — 1,5 h · `notebooks/sesion1/`
 
 1. **01_carga_y_exploracion.ipynb** _(30 min)_
-   - Cargar `A20_GENIL_TOCON` y `P82_D_MENCIA` desde el CSV/Excel del SAIH.
+   - Cargar `A20_GENIL_TOCON` y `A20_202` desde el CSV/Excel del SAIH.
    - Inspeccionar `pd.DataFrame.info`, rango temporal, gaps, frecuencia real vs nominal.
    - Plots básicos: serie completa, año 2026, ventana de crecida.
 2. **02_limpieza.ipynb** _(30 min)_

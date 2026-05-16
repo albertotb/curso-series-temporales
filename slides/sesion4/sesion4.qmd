@@ -12,8 +12,7 @@ format:
 ```{python}
 #| label: setup-global
 #| echo: false
-import sys, os
-sys.path.insert(0, os.path.abspath("../../notebooks/sesion1"))
+import os
 import warnings
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -31,7 +30,7 @@ plt.rcParams.update({
     "font.size": 11,
 })
 
-import utils_datos as ud
+from cst import datos as ud
 
 CAUDAL = ud.cargar_caudal_genil().loc["1995":"2020"]
 ```

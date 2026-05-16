@@ -1,29 +1,41 @@
 """Carga y descarga de datasets para la Sesión 1.
 
-Tres fuentes:
+Cinco fuentes (ver `data/README.md` para detalles):
 
-1. **CHD piezometría** (`PZ0267014`) — Excel local en `data/raw/`.
-2. **CEDEX Anuario de Aforos** — CSV público para datos históricos diarios de
-   caudal y estaciones del Guadalquivir (Pinos-Genil = `indroea` 5020 hasta
-   2020-12-31). Usamos esta fuente como base reproducible.
-3. **SAIH Guadalquivir** — para datos recientes (p.ej. la crecida de feb 2026).
-   El portal es un WebForm ASP.NET sin API pública: la descarga se hace **a
-   mano** desde https://www.chguadalquivir.es/saih/DatosHistoricos.aspx y los
-   CSV se colocan en `data/raw/` con los nombres convenidos. Si el archivo
-   existe, las funciones lo cargan; si no, devuelven la serie ROEA equivalente.
+1. **CHD piezometría** (`PZ0267014`) — Excel local en `data/raw/`. Manual.
+2. **CEDEX Anuario de Aforos** — CSV público (HTTP) con datos diarios de caudal
+   y catálogo de estaciones del Guadalquivir (Pinos-Genil = `indroea` 5020,
+   hasta 2020-12-31). Base reproducible para series largas.
+3. **SAIH Guadalquivir** — Excel exportado a mano desde
+   https://www.chguadalquivir.es/saih/DatosHistoricos.aspx (WebForm ASP.NET sin
+   API pública). Contiene caudal `A20_211_X` y lluvia `A20_202` horarios desde
+   2018, incluida la crecida de feb 2026. Si el Excel existe, las funciones lo
+   prefieren al ROEA y lo resamplean a diario.
+4. **Open-Meteo · ERA5 reanalysis** — HTTP gratis sin API key. Precipitación
+   diaria por lat/lon (resolución ~25 km). Útil como sustituto cuando no hay
+   estación cercana (p.ej. la piezometría del Duero) y para comparar
+   modelo-vs-estación.
+5. **AEMET OpenData** — HTTP con API key. Precipitación diaria oficial por
+   estación (5530E Granada Aeropuerto, etc.). Serie larga (1971-presente),
+   permite trends multidecadales. Requiere `AEMET_API_KEY` en `.env` o entorno.
 
-Estructura de archivos esperada en `data/raw/` (todos opcionales salvo el de
-piezometría):
+Estructura de archivos esperada en `data/raw/` (sólo la piezometría es
+obligatoria; el resto se descarga o se omite):
 
 ```
 data/raw/
-├── piezometria_chd_2024-12.xlsx
-├── anuario_aforos/                       # se crea con descargar_anuario_csv
-│   ├── GUADALQUIVIR_afliq.csv
-│   ├── GUADALQUIVIR_estaf.csv
-│   └── GUADALQUIVIR_evap.csv
-├── saih_A20_GENIL_TOCON.csv              # manual desde SAIH (opcional)
-└── saih_P82_D_MENCIA.csv                 # manual desde SAIH (opcional)
+├── piezometria_chd_2024-12.xlsx         # manual (CHD · MITECO)
+├── anuario_aforos/                       # auto: descargar_anuario_csv
+│   ├── GUADALQUIVIR_afliq.csv            #   caudal diario
+│   ├── GUADALQUIVIR_estaf.csv            #   catálogo de estaciones
+│   └── GUADALQUIVIR_evap.csv             #   precip mensual evaporimétricas
+├── saih_chg/
+│   └── HistSAIH.xlsx                     # manual (SAIH-CHG) — caudal+lluvia
+├── openmeteo/                            # auto: descargar_lluvia_openmeteo
+│   └── era5_<lat>_<lon>_<rango>.csv
+└── aemet/                                # auto: cargar_lluvia_aemet
+    ├── <estacion>_<rango>.parquet
+    └── <estacion>/chunk_<fecha>.json
 ```
 """
 
@@ -207,65 +219,59 @@ def cargar_anuario_estaciones() -> pd.DataFrame:
 # 3. SAIH Guadalquivir — descarga manual (opcional)
 # -----------------------------------------------------------------------------
 
-RUTA_SAIH_GENIL = RUTA_RAW / "saih_A20_GENIL_TOCON.csv"
-RUTA_SAIH_MENCIA = RUTA_RAW / "saih_P82_D_MENCIA.csv"
+RUTA_SAIH_XLSX = RUTA_RAW / "saih_chg" / "HistSAIH.xlsx"
+
+# Columnas tal y como las exporta el SAIH (cluster A20 — Genil-Tocón).
+_SAIH_COL_CAUDAL = "A20_211_X"   # caudal m³/s, media horaria
+_SAIH_COL_LLUVIA = "A20_202"     # precipitación l/m² (≈ mm), acumulado horario
 
 
-def _cargar_saih_csv(ruta: Path, columna_valor: str, nombre_serie: str) -> pd.Series:
-    """Lector genérico para los CSV exportados manualmente desde el SAIH.
+def _cargar_saih_excel_horario() -> pd.DataFrame:
+    """Lee la hoja `Datos` del export Excel del SAIH (formato horario).
 
-    El SAIH exporta tablas con cabecera tipo:
+    La exportación oficial del SAIH (https://www.chguadalquivir.es/saih/) tiene
+    dos hojas: `Info` con metadatos y `Datos` con la tabla. Tras el último dato
+    horario hay una fila vacía y un bloque de "Estadísticas" (Mínimo, Máximo,
+    Media, Total, Número) que descartamos parseando FECHA como datetime y
+    eliminando filas con NaT.
 
-        Fecha;Hora;<estacion> (unidades)
-        12/02/2026;00:00;12.34
-        ...
-
-    Esta función es tolerante a pequeñas variaciones (separador `;` o `,`,
-    decimal `,` o `.`, columna fecha+hora combinada o separada).
+    Usamos el engine `calamine` porque `openpyxl` 3.1.5 falla al leer este
+    fichero (atributo `defaultColWidthPt` que la librería no reconoce).
     """
-    df = pd.read_csv(ruta, sep=None, engine="python", decimal=",", encoding="latin-1")
-    df.columns = [c.strip() for c in df.columns]
-
-    if "Fecha" in df.columns and "Hora" in df.columns:
-        fechas = pd.to_datetime(
-            df["Fecha"].astype(str) + " " + df["Hora"].astype(str),
-            format="%d/%m/%Y %H:%M",
-            errors="coerce",
-        )
-    else:
-        col_fecha = next(c for c in df.columns if "fecha" in c.lower())
-        fechas = pd.to_datetime(df[col_fecha], dayfirst=True, errors="coerce")
-
-    col_valor = next((c for c in df.columns if columna_valor.lower() in c.lower()), df.columns[-1])
-    valores = pd.to_numeric(
-        df[col_valor].astype(str).str.replace(",", ".", regex=False), errors="coerce"
-    )
-
-    serie = pd.Series(valores.values, index=pd.DatetimeIndex(fechas, name="fecha"), name=nombre_serie)
-    serie = serie.dropna(how="all")
-    serie = serie.groupby(serie.index).mean()
-    return serie.sort_index()
+    df = pd.read_excel(RUTA_SAIH_XLSX, sheet_name="Datos", engine="calamine")
+    df["FECHA"] = pd.to_datetime(df["FECHA"], errors="coerce")
+    df = df.dropna(subset=["FECHA"]).set_index("FECHA").sort_index()
+    df.index.name = "fecha"
+    return df
 
 
-def cargar_caudal_genil(
-    indroea_fallback: int = 5020,
-) -> pd.Series:
-    """Caudal del Genil.
+def cargar_caudal_genil(indroea_fallback: int = 5020) -> pd.Series:
+    """Caudal diario del Genil en `A20_GENIL_TOCON`.
 
-    Prefiere el CSV manual del SAIH (`A20_GENIL_TOCON`) si está disponible;
-    en su defecto, devuelve la serie de la estación ROEA indicada
+    Prefiere el Excel manual del SAIH si está disponible (resamplea las medias
+    horarias a media diaria); en su defecto, devuelve la serie ROEA indicada
     (Pinos-Genil 5020 por defecto, datos hasta 2020-12-31).
     """
-    if RUTA_SAIH_GENIL.exists():
-        return _cargar_saih_csv(RUTA_SAIH_GENIL, "caudal", "caudal_A20_GENIL_TOCON")
+    if RUTA_SAIH_XLSX.exists():
+        horario = _cargar_saih_excel_horario()[_SAIH_COL_CAUDAL]
+        diario = horario.resample("D").mean()
+        diario.name = "caudal_A20_GENIL_TOCON"
+        return diario
     return cargar_anuario_caudal(indroea_fallback)
 
 
-def cargar_lluvia_mencia(ref_evap_fallback: int = 5001) -> pd.Series:
-    """Lluvia diaria en P82_D_MENCIA si está descargada; si no, mensual en
-    Iznájar (ref_evap=5001) del Anuario como sustituto."""
-    if RUTA_SAIH_MENCIA.exists():
-        return _cargar_saih_csv(RUTA_SAIH_MENCIA, "precip", "lluvia_P82_D_MENCIA")
+def cargar_lluvia_genil(ref_evap_fallback: int = 5001) -> pd.Series:
+    """Lluvia diaria (mm) del pluviómetro SAIH `A20_202` (cluster Genil-Tocón).
+
+    Lee el Excel del SAIH y suma los acumulados horarios a total diario. Si el
+    Excel no está disponible, devuelve como sustituto la precipitación mensual
+    en Iznájar (ref_evap=5001) del Anuario de Aforos.
+    """
+    if RUTA_SAIH_XLSX.exists():
+        horario = _cargar_saih_excel_horario()[_SAIH_COL_LLUVIA]
+        diario = horario.resample("D").sum(min_count=1)
+        diario.name = "lluvia_A20_202"
+        return diario
     return cargar_anuario_precip_mensual(ref_evap_fallback)
 
 

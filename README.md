@@ -41,7 +41,7 @@ Detalle bloque a bloque, tiempos y notebooks en [`curriculum.md`](curriculum.md)
 
 ## Datasets de ejemplo
 
-- **Aguas superficiales (caudales):** río Genil — punto `A20_GENIL_TOCON`, captando la crecida de febrero 2026. Lluvia representativa asociada: `P82_D_MENCIA`. Fuente: CH Guadalquivir (SAIH), [Datos históricos → Versión clásica](https://www.chguadalquivir.es/saih/DatosHistoricos.aspx).
+- **Aguas superficiales (caudales):** río Genil — punto `A20_GENIL_TOCON`, captando la crecida de febrero 2026. Lluvia representativa asociada: `A20_202`. Fuente: CH Guadalquivir (SAIH), [Datos históricos → Versión clásica](https://www.chguadalquivir.es/saih/DatosHistoricos.aspx).
 - **Aguas subterráneas (piezometría):** pozo `PZ0267014` cerca de Valladolid (cuenca del Duero), afectado por extracciones para regadío. Variable: `COTA PIEZOMÉTRICA` en la hoja `DATOS PIEZOMETRICOS` de `piezometria_chd_2024-12.xlsx`.
 - **Meteorología:** nodo correspondiente de la rejilla AEMET. Coordenadas del nodo en la hoja `LISTADO_PUNTOS` del mismo Excel.
 
