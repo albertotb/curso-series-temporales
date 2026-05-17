@@ -1,4 +1,4 @@
-# Curso: Series Temporales con Python (Hidrología e Hidrogeología)
+# Curso: Series Temporales con Python
 
 ## Información general
 
@@ -38,12 +38,6 @@ Detalle bloque a bloque, tiempos y notebooks en [`curriculum.md`](curriculum.md)
 
 - Demos teoría-código en vivo (alumno reproduce en paralelo): RNN/LSTM/GRU; LSTM sobre el caudal del Genil con `tensorflow` + `keras` (preparación de ventanas, callbacks, regularización); comparación final estadísticos vs ML vs DL; demo de [`neuralhydrology`](https://neuralhydrology.readthedocs.io/) como referente del DL hidrológico moderno; interpretabilidad y análisis de errores.
 - Proyecto final guiado: pipeline completo sobre caudal o piezometría con elección libre de modelos.
-
-## Datasets de ejemplo
-
-- **Aguas superficiales (caudales):** río Genil — punto `A20_GENIL_TOCON`, captando la crecida de febrero 2026. Lluvia representativa asociada: `A20_202`. Fuente: CH Guadalquivir (SAIH), [Datos históricos → Versión clásica](https://www.chguadalquivir.es/saih/DatosHistoricos.aspx).
-- **Aguas subterráneas (piezometría):** pozo `PZ0267014` cerca de Valladolid (cuenca del Duero), afectado por extracciones para regadío. Variable: `COTA PIEZOMÉTRICA` en la hoja `DATOS PIEZOMETRICOS` de `piezometria_chd_2024-12.xlsx`.
-- **Meteorología:** nodo correspondiente de la rejilla AEMET. Coordenadas del nodo en la hoja `LISTADO_PUNTOS` del mismo Excel.
 
 ## Fuentes de datos (referencia general)
 
@@ -86,16 +80,25 @@ Librerías evaluadas y **descartadas** (razonadas en `curriculum.md` §A.3): `pm
 ## Estructura del repositorio
 
 ```text
-curso_series_temporales/
+curso-series-temporales/
 ├── README.md                    # Este archivo
 ├── CLAUDE.md                    # Notas mínimas para asistentes de IA
-├── pyproject.toml               # Dependencias (uv)
-├── .python-version              # 3.11
+├── curriculum.md                # Currículo detallado bloque a bloque
+├── pyproject.toml               # Dependencias y config (uv + ruff)
+├── uv.lock                      # Lockfile reproducible
+├── .python-version              # 3.13
 ├── _quarto.yml                  # Config global de Quarto
-├── Programa_curso_v3.docx       # Programa de referencia
 ├── data/
 │   ├── raw/                     # Datos crudos (versionados): aforos, piezometría, lluvia
 │   └── processed/               # Datos procesados (no versionados, regenerables)
+├── docs/
+│   ├── Programa_curso_v3.docx   # Programa de referencia
+│   ├── curso_series_temporales.md
+│   └── investigacion_cursos_similares.md
+├── src/
+│   └── cst/                     # Paquete compartido (utilidades de carga de datos)
+│       ├── __init__.py
+│       └── datos.py             # `from cst import datos as ud` en los notebooks
 ├── slides/
 │   ├── _theme/
 │   │   └── komorebi.scss        # Tema Quarto reveal.js (paleta Komorebi)
@@ -104,13 +107,13 @@ curso_series_temporales/
 │   ├── sesion3/sesion3.qmd
 │   └── sesion4/sesion4.qmd
 └── notebooks/
-    ├── sesion1/                 # Carga, exploración, ACF/CCF
-    ├── sesion2/                 # ARIMA, ETS, Pastas
-    ├── sesion3/                 # ML/DL teoría aplicada
-    └── sesion4/                 # ML/DL práctica + proyecto final
+    ├── sesion1/                 # Carga, limpieza, exploración, ACF/CCF
+    ├── sesion2/                 # ARIMA/ETS, Prophet, Pastas, validación
+    ├── sesion3/                 # ML clásico (RF/XGBoost) + backtesting con skforecast
+    └── sesion4/                 # LSTM (keras), interpretabilidad, proyecto final
 ```
 
-## Puesta en marcha
+## Setup
 
 ```bash
 # 1. Instalar uv (una sola vez) — ver https://docs.astral.sh/uv/
