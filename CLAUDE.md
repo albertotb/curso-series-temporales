@@ -29,6 +29,16 @@ quarto preview slides/sesion1/sesion1.qmd # preview en vivo
 
 - **No hacer cambios a menos que se pidan explícitamente.** Muchas veces el usuario sólo está preguntando o discutiendo — responder con análisis, números, o explicación, no con ediciones. Cuando quiera que se cambie algo lo dirá explícitamente ("haz X", "edita Y", "añade Z"). Ante la duda, preguntar antes de editar.
 
+## Flujo de trabajo con notebooks
+
+- Tras editar cualquier `.ipynb` (crear celdas, modificar código), ejecutar **siempre** antes de dar el cambio por terminado:
+  ```powershell
+  uv run ruff format notebooks/
+  uv run ruff check notebooks/
+  ```
+  Resolver lo que reporte `check` (o añadir a `per-file-ignores` en `pyproject.toml` si es un patrón intencionado, p. ej. `E402` por `logging.getLogger(...)` antes de los imports).
+- No ejecutar las celdas del notebook — el usuario las corre en su Jupyter Lab. Solo formateo + lint estático.
+
 ## Flujo de trabajo con slides (Quarto)
 
 - **NUNCA** ejecutar `quarto render` tras editar un `.qmd` — es lento. Para ver los cambios se usa siempre `quarto preview` (hot-reload).
