@@ -69,15 +69,26 @@ $presentation-heading-font: "Source Serif Pro", Palatino, FreeSerif, serif !defa
     width: auto;
   }
 
+  // Variante para diapositivas con sólo una figura grande (sin texto debajo).
+  // Aplicar añadiendo `{.large-fig}` al heading: `## Mi título {.large-fig}`.
+  .slides section.large-fig figure img,
+  .slides section.large-fig figure svg,
+  .slides section.large-fig .cell-output-display img,
+  .slides section.large-fig .cell-output-display svg {
+    max-height: 660px;
+    max-width: 100%;
+  }
+
   .slides figcaption {
     margin-top: 0.15em;
     font-size: 0.55em;
     line-height: 1.2;
   }
 
-  // Bloques de código: fuente algo más pequeña y padding compacto
+  // Bloques de código: fuente algo más pequeña y padding compacto.
+  // `margin: 0.6em 0` separa el bloque del texto/párrafos adyacentes.
   .slides div.sourceCode {
-    margin: 0.2em 0;
+    margin: 0.6em 0;
   }
   .slides pre {
     padding: 0.3em 0.6em;
@@ -88,15 +99,48 @@ $presentation-heading-font: "Source Serif Pro", Palatino, FreeSerif, serif !defa
     font-size: 0.65em;
   }
 
+  // Líneas numeradas: Pandoc coloca el número con `position: relative` y un
+  // shift negativo (-4em en el span, -1em en el ::before) para sacarlo al
+  // gutter izquierdo del pre. Eso deja contenido visual fuera del
+  // div.sourceCode → con `overflow: auto`, el browser muestra scrollbar
+  // horizontal fantasma. Además reveal.css fuerza `.reveal a {position: relative}`
+  // y Pandoc fuerza `pre>code.sourceCode {position: relative}`, así que
+  // `position: absolute` en el ::before no se ancla al pre sino al <code> o <a>.
+  //
+  // Estrategia: anular todos los shifts y dejar el número en flujo inline
+  // estático al inicio de la línea (inline-block con width fija → gutter).
+  // El código pierde ~3em de ancho útil pero ya no hay scrollbar fantasma.
+  .slides pre.numberSource {
+    margin-left: 0;
+    padding-left: 0;
+    box-sizing: border-box;   // Quarto fija width:100%; sin border-box el padding-right (de .slides pre) lo desborda
+  }
+  .slides pre.numberSource code > span {
+    position: static;
+    left: auto;
+  }
+  .slides pre.numberSource code > span > a:first-child {
+    position: static;
+  }
+  .slides pre.numberSource code > span > a:first-child::before {
+    position: static;
+    left: auto;
+    width: 1.5em;
+    padding: 0 1em 0 0.3em;  // hueco pequeño a la izquierda del nº, más ancho a la derecha (separa del código)
+    text-align: right;
+    color: #b5b5b5;       // gris claro para que el número no compita con el código
+  }
+
   // Output de celdas (texto plano de print/df.head)
   .slides .cell-output pre {
     font-size: 0.55em;
     line-height: 1.2;
   }
 
-  // Tablas
+  // Tablas: margen externo para separarlas del texto/párrafos adyacentes.
   .slides table {
     font-size: 0.7em;
+    margin: 0.6em 0;
   }
   .slides th,
   .slides td {

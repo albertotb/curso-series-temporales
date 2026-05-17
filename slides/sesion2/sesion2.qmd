@@ -30,7 +30,7 @@ plt.rcParams.update({
 
 from cst import datos as ud
 
-CAUDAL = ud.cargar_caudal_genil()
+CAUDAL = ud.cargar_caudal_genil(source="CEDEX")
 LLUVIA = ud.cargar_lluvia_genil_diaria(fecha_inicio="1995-01-01", fecha_fin="2020-12-31")
 CAUDAL_M = CAUDAL.resample("MS").mean().loc["1995":"2020"].interpolate("linear", limit=2)
 LLUVIA_M = LLUVIA.resample("MS").sum().loc["1995":"2020"]
@@ -112,20 +112,25 @@ $$
 y_t = c + \phi_1 y_{t-1} + \phi_2 y_{t-2} + \cdots + \phi_p y_{t-p} + \varepsilon_t
 $$
 
-. . .
-
 - $\phi_i$ son los coeficientes autorregresivos.
 - $\varepsilon_t \sim \mathcal{N}(0, \sigma^2)$ ruido blanco.
 - **Identificación:** PACF se corta en lag $p$.
 
-. . .
+---
+
+## AR(2) — PACF que se corta en lag 2
 
 ```{python}
 #| label: ar-simulado
 #| echo: true
+#| fig-cap: "AR(2) simulado, n=400 — PACF significativa hasta lag 2, después ≈ 0"
 from statsmodels.tsa.arima_process import ArmaProcess
-ar = ArmaProcess([1, -0.8, 0.2]).generate_sample(400, scale=1.0)
-print(f"AR(2): media={ar.mean():.2f}  std={ar.std():.2f}")
+from statsmodels.graphics.tsaplots import plot_pacf
+np.random.seed(0)
+ar2 = ArmaProcess([1, -0.8, 0.2]).generate_sample(400)
+fig, ax = plt.subplots(figsize=(8, 2.4))
+plot_pacf(ar2, lags=15, ax=ax, method="ywm", color="#1f6f8b")
+ax.set_title(""); ax.set_xlabel("Lag"); plt.tight_layout()
 ```
 
 ---
@@ -135,8 +140,6 @@ print(f"AR(2): media={ar.mean():.2f}  std={ar.std():.2f}")
 $$
 y_t = c + \varepsilon_t + \theta_1 \varepsilon_{t-1} + \cdots + \theta_q \varepsilon_{t-q}
 $$
-
-. . .
 
 - "Shock" reciente que se propaga $q$ pasos.
 - **Identificación:** ACF se corta en lag $q$.
@@ -149,6 +152,24 @@ ARMA(p,q) = mezcla de los dos: $y_t$ depende de su pasado **y** de errores pasad
 
 ---
 
+## MA(1) — ACF que se corta en lag 1
+
+```{python}
+#| label: ma-acf
+#| echo: false
+#| fig-cap: "MA(1) simulado con θ=0.8 — ACF significativa sólo en lag 1"
+from statsmodels.graphics.tsaplots import plot_acf
+np.random.seed(0)
+ma1 = ArmaProcess([1], [1, 0.8]).generate_sample(400)
+fig, ax = plt.subplots(figsize=(8, 2.4))
+plot_acf(ma1, lags=15, ax=ax, color="#c2410c")
+ax.set_title(""); ax.set_xlabel("Lag"); plt.tight_layout()
+```
+
+**Regla práctica:** AR(p) → PACF se corta en $p$, ACF decae; MA(q) → ACF se corta en $q$, PACF decae.
+
+---
+
 ## ARIMA(p, d, q)
 
 $$
@@ -157,16 +178,32 @@ $$
 
 donde $\nabla y_t = y_t - y_{t-1}$ es la diferencia primera.
 
-. . .
-
 - **$d$**: número de diferenciaciones para hacer estacionaria la serie.
   - $d = 0$ → ya estacionaria (rara vez en hidrología).
   - $d = 1$ → tendencia lineal eliminada.
   - $d = 2$ → curvaturas. Casi nunca necesario.
 
-. . .
-
 **Elegir $d$**: tests ADF/KPSS sobre la serie y sus diferencias. Si KPSS sigue rechazando con $d=1$, prueba $d=2$.
+
+---
+
+## ARIMA — diferenciar para estabilizar
+
+```{python}
+#| label: arima-diff
+#| echo: false
+#| fig-cap: "Paseo aleatorio (arriba): no estacionario. Su diferencia (abajo): ruido blanco."
+np.random.seed(0)
+rw = np.cumsum(np.random.randn(300))
+fig, (a1, a2) = plt.subplots(2, 1, figsize=(9, 2.8), sharex=True)
+a1.plot(rw, color="#1f6f8b", lw=0.9); a1.set_ylabel(r"$y_t$")
+a1.set_title("Original — deriva, varianza creciente", fontsize=10)
+a2.plot(np.diff(rw), color="#c2410c", lw=0.9); a2.set_ylabel(r"$\Delta y_t$")
+a2.set_title("Diferenciada (d=1) — oscila en torno a 0", fontsize=10)
+plt.tight_layout()
+```
+
+Misma serie tras `np.diff`: media y varianza ya no se mueven con el tiempo → ARMA aplicable.
 
 ---
 
@@ -203,23 +240,102 @@ $$
 
 . . .
 
-En hidrología la covariable canónica es la **lluvia retardada**:
+En hidrología la covariable canónica es la **lluvia acumulada retardada** (la respuesta del caudal es plurimensual: agua de varios meses se va liberando del suelo / acuíferos):
 
 ```{python}
 #| label: sarimax-ejemplo
 #| echo: true
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
-endog = CAUDAL_M.dropna()
-exog = LLUVIA_M.shift(1).reindex(endog.index)   # lluvia del mes anterior
+endog = CAUDAL_M.asfreq("MS").dropna()
+exog = LLUVIA_M.asfreq("MS").rolling(3).sum().shift(1).reindex(endog.index)
 mask = exog.notna()
 modelo = SARIMAX(endog[mask], exog=exog[mask],
-                 order=(1,1,1), seasonal_order=(1,0,1,12)).fit(disp=False)
+                 order=(1,0,0), seasonal_order=(0,1,1,12)).fit(disp=False)
 nombre_exog = modelo.model.exog_names[0]
-print(f"AIC = {modelo.aic:.1f}   coef lluvia ({nombre_exog}) = {modelo.params[nombre_exog]:.3f}")
+print(f"AIC = {modelo.aic:.1f}   coef lluvia 3m ({nombre_exog}) = {modelo.params[nombre_exog]:.4f}")
 ```
 
-Coeficiente positivo → más lluvia el mes anterior → más caudal este mes.
+Órdenes: caudal ya estacionario en nivel (ADF rechaza) → $d=0$; estacionalidad anual marcada → $D=1$ con $\mathrm{SMA}(1)$. Coef positivo → más lluvia acumulada → más caudal.
+
+---
+
+## SARIMAX — ajuste sobre el caudal
+
+```{python}
+#| label: sarimax-fit
+#| echo: false
+#| fig-cap: "Ajuste SARIMAX(1,0,0)(0,1,1,12) con lluvia acumulada 3m — y contribución del término exógeno"
+ventana = slice("2015", "2020")
+coef = modelo.params[nombre_exog]
+contrib = (coef * exog).loc[ventana]
+
+fig, (a1, a2) = plt.subplots(2, 1, figsize=(9, 3.2), sharex=True,
+                             gridspec_kw={"height_ratios": [2, 1]})
+a1.plot(CAUDAL_M.loc[ventana], color="#1f6f8b", lw=0.9, label="observado")
+a1.plot(modelo.fittedvalues.loc[ventana], color="#c2410c", lw=1.0, ls="--", label="SARIMAX")
+a1.set_ylabel("Q (m³/s)"); a1.legend(loc="upper right", fontsize=9)
+
+a2.fill_between(contrib.index, 0, contrib.values, color="#3a7d44", alpha=0.55)
+a2.axhline(0, color="grey", lw=0.5)
+a2.set_ylabel("β·lluvia\n(m³/s)", fontsize=9)
+plt.tight_layout()
+```
+
+Arriba: el modelo (rojo) sigue la estacionalidad y los picos del observado (azul). Abajo: contribución del término **lluvia retardada** — empuja el pronóstico al alza en meses húmedos, ≈0 en secos.
+
+---
+
+## ARIMA vs SARIMA vs SARIMAX — pronóstico 2018-2019 {.large-fig}
+
+```{python}
+#| label: arima-sarima-sarimax-fc
+#| echo: false
+#| fig-width: 12
+#| fig-height: 7
+#| out-width: "100%"
+#| fig-cap: "Entrenamiento 1995-2017, test 2018-2019. Lluvia acumulada 3 meses (1 mes de retraso)"
+y = CAUDAL_M.asfreq("MS").dropna()
+# Caudal ya estacionario en nivel (ADF rechaza) → d=0. Estacionalidad fuerte → D=1.
+# Exog hidrológicamente realista: lluvia acumulada 3 meses, retardada 1 mes.
+x = LLUVIA_M.asfreq("MS").rolling(3).sum().shift(1).reindex(y.index).dropna()
+y = y.loc[x.index]
+y_tr, y_te = y.loc[:"2017-12-01"], y.loc["2018":"2019"]
+x_tr, x_te = x.loc[:"2017-12-01"], x.loc["2018":"2019"]
+
+m_a  = SARIMAX(y_tr,            order=(1,0,0)).fit(disp=False)
+m_s  = SARIMAX(y_tr,            order=(1,0,0), seasonal_order=(0,1,1,12)).fit(disp=False)
+m_sx = SARIMAX(y_tr, exog=x_tr, order=(1,0,0), seasonal_order=(0,1,1,12)).fit(disp=False)
+
+h = len(y_te)
+f_a  = pd.Series(np.asarray(m_a.forecast(steps=h)),             index=y_te.index)
+f_s  = pd.Series(np.asarray(m_s.forecast(steps=h)),             index=y_te.index)
+f_sx = pd.Series(np.asarray(m_sx.forecast(steps=h, exog=x_te)), index=y_te.index)
+
+rmse = lambda p, o: float(np.sqrt(((p.values - o.values) ** 2).mean()))
+r = {"ARIMA": rmse(f_a, y_te), "SARIMA": rmse(f_s, y_te), "SARIMAX": rmse(f_sx, y_te)}
+
+vis = slice("2014", "2019")
+fig, axes = plt.subplots(4, 1, figsize=(12, 7.0), sharex=True,
+                         gridspec_kw={"height_ratios": [1, 1, 1, 0.55]})
+paneles = [
+    (axes[0], "ARIMA",   "#1f6f8b", m_a.fittedvalues,  f_a,  r["ARIMA"]),
+    (axes[1], "SARIMA",  "#c2410c", m_s.fittedvalues,  f_s,  r["SARIMA"]),
+    (axes[2], "SARIMAX", "#3a7d44", m_sx.fittedvalues, f_sx, r["SARIMAX"]),
+]
+for ax, name, color, fit, fc, err in paneles:
+    ax.plot(y.loc[vis], color="#888", lw=1.0)
+    ax.plot(fit.loc[vis].dropna(), color=color, lw=1.2, label="fit (train)")
+    ax.plot(fc.index, fc.values, color=color, lw=1.6, ls="--", label="forecast (test)")
+    ax.axvline(pd.Timestamp("2017-12-01"), color="grey", ls=":", lw=0.7)
+    ax.set_ylabel(name, fontsize=11)
+    ax.text(0.01, 0.92, f"RMSE test = {err:.2f}", transform=ax.transAxes,
+            ha="left", va="top", fontsize=10, color=color, fontweight="bold")
+axes[3].bar(LLUVIA_M.loc[vis].index, LLUVIA_M.loc[vis].values, width=25,
+            color="#1f6f8b", alpha=0.6)
+axes[3].set_ylabel("lluvia\n(mm/mes)", fontsize=10)
+plt.tight_layout()
+```
 
 ---
 
@@ -238,7 +354,7 @@ Si el diagnóstico falla → volver al paso 1 con otros órdenes.
 
 ---
 
-## Diagnóstico de residuos
+## Diagnóstico de residuos {.large-fig}
 
 ```{python}
 #| label: diag-residuos
@@ -266,7 +382,7 @@ $$
 \mathcal{L}(\theta) = p(y_1, \ldots, y_n \mid \theta)
 $$
 
-la probabilidad (densidad) de **observar precisamente esos datos** si el modelo y sus parámetros fueran ciertos.
+la probabilidad de **observar esos datos** si el modelo es cierto.
 
 . . .
 
@@ -306,21 +422,108 @@ $k$ = nº de parámetros del modelo, $n$ = tamaño muestral.
 
 ## ETS — la otra gran familia
 
-ETS = **E**rror, **T**rend, **S**easonal. Cada componente puede ser **A**ditiva, **M**ultiplicativa o **N**inguna.
-
-Notación: ETS(A,A,A), ETS(A,Ad,A), ETS(M,A,M)…
+**Idea central:** descomponer la serie en hasta tres componentes — **nivel**, **tendencia** y **estacionalidad** — y actualizar cada una recursivamente con una media ponderada que da más peso a lo reciente.
 
 . . .
 
-**Idea común:** el pronóstico se actualiza como una media ponderada del último valor observado y la predicción anterior, con pesos que decaen exponencialmente.
+Nomenclatura ETS = **E**rror, **T**rend, **S**easonal. Cada componente puede ser **A**ditiva, **M**ultiplicativa o **N**inguna.
+
+Notación: ETS(A,A,A), ETS(A,Ad,A), ETS(M,A,M)… → **19 combinaciones** posibles.
 
 . . .
 
 Casos clásicos:
 
-- ETS(A,N,N) = **Simple Exponential Smoothing** (sin tendencia).
-- ETS(A,A,N) = **Holt** (tendencia lineal).
-- ETS(A,A,A) = **Holt-Winters** aditivo (tendencia + estacionalidad).
+- ETS(A,N,N) = **Simple Exponential Smoothing** (sólo nivel).
+- ETS(A,A,N) = **Holt** (+ tendencia lineal).
+- ETS(A,A,A) = **Holt-Winters** aditivo (+ estacionalidad).
+
+---
+
+## SES — la operación básica
+
+El **suavizado exponencial simple** actualiza el pronóstico como media ponderada entre el último valor observado y el pronóstico anterior:
+
+$$
+\hat{y}_{t+1} = \alpha\, y_t + (1-\alpha)\, \hat{y}_t, \qquad \alpha \in (0, 1)
+$$
+
+. . .
+
+Desarrollando la recursión hacia atrás:
+
+$$
+\hat{y}_{t+1} = \alpha y_t + \alpha(1-\alpha) y_{t-1} + \alpha(1-\alpha)^2 y_{t-2} + \cdots
+$$
+
+los pesos $\alpha(1-\alpha)^k$ decaen **exponencialmente** con la antigüedad → de ahí el nombre de la familia.
+
+. . .
+
+- $\alpha$ alto (≈ 1) → reactivo, sigue de cerca al último valor.
+- $\alpha$ bajo (≈ 0) → muy suavizado, lento a reaccionar.
+
+---
+
+## De SES a Holt-Winters
+
+Cada componente añade una ecuación de actualización con su propio parámetro de suavizado:
+
+| Modelo | Componentes | Parámetros |
+|---|---|---|
+| **SES** — ETS(A,N,N) | nivel $\ell_t$ | $\alpha$ |
+| **Holt** — ETS(A,A,N) | + tendencia $b_t$ | $\alpha, \beta$ |
+| **Holt-Winters** — ETS(A,A,A) | + estacional $s_t$ (período $m$) | $\alpha, \beta, \gamma$ |
+
+. . .
+
+Pronóstico Holt-Winters a horizonte $h$:
+
+$$
+\hat{y}_{t+h} = \underbrace{\ell_t}_{\text{nivel}} + \underbrace{h\, b_t}_{\text{tendencia}} + \underbrace{s_{t+h-m}}_{\text{estacional}}
+$$
+
+los tres estados $\ell_t, b_t, s_t$ se actualizan recursivamente cada paso con $\alpha, \beta, \gamma$ respectivamente.
+
+---
+
+## Holt-Winters — ecuaciones de actualización
+
+Cada nueva observación $y_t$ actualiza los tres estados. **Cada ecuación tiene la misma forma SES**: `λ × (estimación reciente del componente) + (1-λ) × (valor previo)`.
+
+. . .
+
+**Nivel** — quita la estacionalidad de $y_t$ y promedia con el nivel proyectado:
+
+$$
+\ell_t = \alpha\,(y_t - s_{t-m}) + (1-\alpha)(\ell_{t-1} + b_{t-1})
+$$
+
+. . .
+
+**Tendencia** — cambio reciente del nivel, suavizado:
+
+$$
+b_t = \beta\,(\ell_t - \ell_{t-1}) + (1-\beta)\, b_{t-1}
+$$
+
+
+
+---
+
+## Holt-Winters — leyendo las ecuaciones
+
+**Estacional** — desviación residual respecto al nivel + tendencia, suavizada con el patrón del ciclo anterior:
+
+$$
+s_t = \gamma\,(y_t - \ell_{t-1} - b_{t-1}) + (1-\gamma)\, s_{t-m}
+$$
+
+. . .
+
+- $y_t - s_{t-m}$ → "desestacionaliza" la observación antes de incorporarla al nivel.
+- $\ell_t - \ell_{t-1}$ → estimación cruda de la pendiente; $\beta$ controla cuánto te fías.
+- $y_t - \ell_{t-1} - b_{t-1}$ → lo que sobra tras restar nivel y tendencia — eso debería ser puro patrón estacional.
 
 ---
 
@@ -339,16 +542,38 @@ print(f"γ (estacional) = {ets.params['smoothing_seasonal']:.3f}")
 
 ---
 
-## Holt-Winters — ajuste sobre el caudal
+## Holt-Winters vs SARIMAX — pronóstico 2018-2019 {.large-fig}
 
 ```{python}
 #| label: ets-fig
 #| echo: false
-#| fig-cap: "Ajuste Holt-Winters sobre el caudal mensual"
-fig, ax = plt.subplots()
-ax.plot(CAUDAL_M.dropna(), color="#1f6f8b", lw=0.8, label="observado")
-ax.plot(ets.fittedvalues, color="#c2410c", lw=1.2, ls="--", label="ETS ajustado")
-ax.set_ylabel("Q (m³/s)"); ax.legend()
+#| fig-width: 12
+#| fig-height: 7
+#| out-width: "100%"
+#| fig-cap: "Mismo train/test que la comparación ARIMA. Holt-Winters es univariante (no acepta exógenas); SARIMAX usa lluvia acumulada 3m."
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+hw = ExponentialSmoothing(y_tr, trend="add", seasonal="add", seasonal_periods=12).fit()
+f_hw = pd.Series(np.asarray(hw.forecast(steps=len(y_te))), index=y_te.index)
+r_hw = float(np.sqrt(((f_hw.values - y_te.values) ** 2).mean()))
+
+vis = slice("2014", "2019")
+fig, axes = plt.subplots(3, 1, figsize=(12, 7.0), sharex=True,
+                         gridspec_kw={"height_ratios": [1, 1, 0.55]})
+paneles = [
+    (axes[0], "Holt-Winters", "#8b3a62", hw.fittedvalues,    f_hw, r_hw),
+    (axes[1], "SARIMAX",      "#3a7d44", m_sx.fittedvalues,  f_sx, r["SARIMAX"]),
+]
+for ax, name, color, fit, fc, err in paneles:
+    ax.plot(y.loc[vis], color="#888", lw=1.0)
+    ax.plot(fit.loc[vis].dropna(), color=color, lw=1.2, label="fit (train)")
+    ax.plot(fc.index, fc.values, color=color, lw=1.6, ls="--", label="forecast (test)")
+    ax.axvline(pd.Timestamp("2017-12-01"), color="grey", ls=":", lw=0.7)
+    ax.set_ylabel(name, fontsize=11)
+    ax.text(0.01, 0.92, f"RMSE test = {err:.2f}", transform=ax.transAxes,
+            ha="left", va="top", fontsize=10, color=color, fontweight="bold")
+axes[2].bar(LLUVIA_M.loc[vis].index, LLUVIA_M.loc[vis].values, width=25,
+            color="#1f6f8b", alpha=0.6)
+axes[2].set_ylabel("lluvia\n(mm/mes)", fontsize=10)
 plt.tight_layout()
 ```
 
@@ -376,20 +601,56 @@ plt.tight_layout()
 
 ## Prophet — modelo aditivo de Meta
 
+Publicado por Meta en 2017 para pronóstico de negocio. Backend **bayesiano** (STAN); diseñado para que los defaults funcionen sin experto.
+
 $$
-y(t) = g(t) + s(t) + h(t) + \varepsilon_t
+y(t) = g(t) + s(t) + h(t) + \sum_j \beta_j\, x_j(t) + \varepsilon_t
 $$
 
-- $g(t)$: tendencia por tramos (lineal o saturada logística).
-- $s(t)$: estacionalidades múltiples vía series de Fourier (anual, semanal, diaria…).
-- $h(t)$: efectos de **festivos** o eventos especiales.
-- $\varepsilon_t$: ruido.
+- $g(t)$: tendencia por tramos con *changepoints*.
+- $s(t)$: estacionalidades múltiples vía Fourier (anual/semanal/diaria/custom).
+- $h(t)$: festivos y eventos especiales.
+- $\beta_j x_j(t)$: regresores exógenos (`add_regressor`).
+- $\varepsilon_t$: ruido gaussiano.
+
+---
+
+## Prophet — hiperparámetros {.smaller}
+
+Prophet no admite AIC/BIC (priors variables → verosimilitud no comparable). Vía estándar: **rolling-origin CV + grid search** con `prophet.diagnostics.cross_validation` + `performance_metrics`.
+
+Las palancas, en orden de impacto:
+
+- **`changepoint_prior_scale`** *(0.05)* — flexibilidad de la tendencia. Bajo → casi lineal; alto → se adapta agresivamente. **El más impactante.**
+- **`seasonality_prior_scale`** *(10)* — amplitud estacional. Bajo → suprimida; alto → patrones marcados.
+- **`seasonality_mode`** *(`additive`)* — usar `multiplicative` cuando la amplitud crece con el nivel (ventas).
+- **`yearly_seasonality`** *(auto, ~10)* — orden Fourier. Subir afina picos pero confunde tendencia ↔ estacionalidad.
+- **`add_regressor(prior_scale=)`** *(10)* — sensibilidad de regresores exógenos. Bajar para regularizar.
+
+Tunear suele significar grid log-escala sobre los **dos primeros**; el resto se deja por defecto salvo síntoma concreto.
+
+---
+
+## Prophet vs ETS
+
+Los dos descomponen la serie en **nivel + tendencia + estacionalidad**. Lo que cambia es **cómo se estima cada componente**:
+
+|  | ETS | Prophet |
+|---|---|---|
+| **Componentes se estiman…** | recursivamente, estado evoluciona paso a paso | como **curvas paramétricas globales** de $t$ |
+| Tendencia | $\ell_t, b_t$ se actualizan con $\alpha, \beta$ | función por tramos con changepoints |
+| Estacionalidad | un solo período $m$ (índices $s_t$) | múltiples períodos vía **series de Fourier** |
+| Festivos / eventos | no nativos | término $h(t)$ explícito |
+| Cambio de régimen | la recursión "olvida" lo viejo | changepoints detectados o fijados |
+| Datos faltantes | requiere rejilla regular | tolerados |
+
+. . .
+
+**Mnemonic:** ETS es **local y adaptativo** (lo reciente pesa más, vía recursión); Prophet es **global y declarativo** (ajustas una curva sobre todo el rango).
 
 ---
 
 ## Prophet vs SARIMAX — dos filosofías
-
-SARIMAX impone al proceso una **forma muy concreta**: autoregresión lineal en los lags + diferenciación para forzar estacionariedad + una sola estacionalidad rígida. Prophet es **mucho más flexible** — encaja cualquier serie que se pueda descomponer en tendencia + ciclos + festivos.
 
 |  | SARIMAX | Prophet |
 |---|---|---|
@@ -403,34 +664,50 @@ SARIMAX impone al proceso una **forma muy concreta**: autoregresión lineal en l
 | Escalabilidad | Bien con $n$ grande | Lento con $n > 10^4$ |
 | Mejor cuando... | Serie densa, estacionaria tras diff | Datos sucios, festivos, cambios |
 
-. . .
-
-**Regla mnemónica:** SARIMAX **exige** al proceso una forma rígida; Prophet **acepta** casi cualquier forma.
-
 ---
 
-## Prophet en código
+## Prophet vs SARIMAX — pronóstico 2018-2019 {.large-fig}
 
 ```{python}
 #| label: prophet-demo
-#| echo: true
+#| echo: false
+#| fig-width: 12
+#| fig-height: 7
+#| out-width: "100%"
+#| fig-cap: "Mismo train/test. Prophet con `yearly_seasonality=True` y `add_regressor('lluvia3m')` para igualar la información que ve SARIMAX."
 from prophet import Prophet
 import logging
 logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
 
-df = (CAUDAL_M.dropna()
-      .rename_axis("ds").reset_index()
-      .rename(columns={CAUDAL_M.name: "y"}))
-df["lluvia"] = LLUVIA_M.reindex(df["ds"]).values
+df_tr = pd.DataFrame({"ds": y_tr.index, "y": y_tr.values, "lluvia3m": x_tr.values})
+df_te = pd.DataFrame({"ds": y_te.index, "lluvia3m": x_te.values})
 
-m = Prophet(yearly_seasonality=True, weekly_seasonality=False, daily_seasonality=False)
-m.add_regressor("lluvia")
-m.fit(df)
+mp = Prophet(yearly_seasonality=True, weekly_seasonality=False, daily_seasonality=False)
+mp.add_regressor("lluvia3m")
+mp.fit(df_tr)
+fit_p = pd.Series(mp.predict(df_tr)["yhat"].values, index=y_tr.index)
+f_p   = pd.Series(mp.predict(df_te)["yhat"].values, index=y_te.index)
+r_p   = float(np.sqrt(((f_p.values - y_te.values) ** 2).mean()))
 
-future = m.make_future_dataframe(periods=12, freq="MS")
-future["lluvia"] = df["lluvia"].mean()
-fc = m.predict(future)
-print(f"yhat[-3:] = {fc['yhat'].tail(3).round(2).tolist()} m³/s")
+vis = slice("2014", "2019")
+fig, axes = plt.subplots(3, 1, figsize=(12, 7.0), sharex=True,
+                         gridspec_kw={"height_ratios": [1, 1, 0.55]})
+paneles = [
+    (axes[0], "Prophet",  "#8a4f2f", fit_p,             f_p,  r_p),
+    (axes[1], "SARIMAX",  "#3a7d44", m_sx.fittedvalues, f_sx, r["SARIMAX"]),
+]
+for ax, name, color, fit, fc, err in paneles:
+    ax.plot(y.loc[vis], color="#888", lw=1.0)
+    ax.plot(fit.loc[vis].dropna(), color=color, lw=1.2, label="fit (train)")
+    ax.plot(fc.index, fc.values, color=color, lw=1.6, ls="--", label="forecast (test)")
+    ax.axvline(pd.Timestamp("2017-12-01"), color="grey", ls=":", lw=0.7)
+    ax.set_ylabel(name, fontsize=11)
+    ax.text(0.01, 0.92, f"RMSE test = {err:.2f}", transform=ax.transAxes,
+            ha="left", va="top", fontsize=10, color=color, fontweight="bold")
+axes[2].bar(LLUVIA_M.loc[vis].index, LLUVIA_M.loc[vis].values, width=25,
+            color="#1f6f8b", alpha=0.6)
+axes[2].set_ylabel("lluvia\n(mm/mes)", fontsize=10)
+plt.tight_layout()
 ```
 
 ---
@@ -569,7 +846,7 @@ Output típico:
 
 ## Forecasting en producción · la API
 
-Una vez ajustado el modelo, la API para predecir el futuro es uniforme:
+**API de `statsmodels`** — la usan ARIMA, SARIMA, SARIMAX y ETS/Holt-Winters (y VAR, UnobservedComponents). Todo `Results` ajustado expone:
 
 ```python
 # Predicción puntual h pasos al futuro
@@ -583,7 +860,8 @@ ic95 = fc.conf_int(alpha=0.05)
 
 . . .
 
-- `.forecast(h)` y `.predict(start, end)`: dos formas de pedir el mismo bloque.
+Las otras librerías usan **su propia API**:
+
 - **Prophet**: `m.make_future_dataframe(periods=h)` + `m.predict()`.
 - **Pastas**: `ml.simulate(tmax="2030-12-31")`.
 
@@ -598,14 +876,14 @@ ic95 = fc.conf_int(alpha=0.05)
 ```{python}
 #| label: fig-forecast
 #| echo: false
-#| fig-cap: "SARIMA — pronóstico a 24 meses con intervalos 80% y 95%"
+#| fig-cap: "SARIMA(1,1,1)(1,0,1,12) — pronóstico a 48 meses con intervalos 80% y 95%"
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 # Asegurar índice con freq mensual ("MS") — si no, get_forecast devuelve
 # enteros que matplotlib interpreta como segundos desde 1970.
 serie_fit = CAUDAL_M.asfreq("MS")
 fit_demo = SARIMAX(serie_fit,
                    order=(1,1,1), seasonal_order=(1,0,1,12)).fit(disp=False)
-fc = fit_demo.get_forecast(steps=24)
+fc = fit_demo.get_forecast(steps=48)
 mu   = fc.predicted_mean
 ic80 = fc.conf_int(alpha=0.20)
 ic95 = fc.conf_int(alpha=0.05)
@@ -627,25 +905,21 @@ Las bandas se abren con el horizonte: la incertidumbre **no es opcional** en pro
 
 ## Mantener el modelo al día
 
-Los datos nuevos llegan. Dos estrategias para no quedarse con calibración vieja:
+Los datos nuevos llegan. Tres niveles según qué se re-toca: **hiperparámetros** (órdenes $p, d, q, \ldots$) y **parámetros** ($\phi, \theta, \sigma^2$).
 
-| Estrategia | Coste | Cadencia |
-|---|---|---|
-| **Refit completo** — re-estima todos los parámetros | Alto | Semana / mes |
-| **`.append(nuevos)`** — propaga Kalman, params fijos | Bajo | Cada paso |
-
-. . .
-
-```python
-modelo = modelo.append(pd.Series([nuevo_q], index=[nueva_fecha]))
-pred = modelo.forecast(steps=1)                  # rápido, cada paso
-
-modelo = SARIMAX(serie_completa, order=...).fit()  # lento, periódico
-```
+| Acción | Hiperparámetros | Parámetros | Coste | Cadencia |
+|---|---|---|---|---|
+| **`.append(nuevos)`** | fijos | fijos | Bajo | Cada paso |
+| **Refit completo** | fijos | re-estimados con la serie ampliada | Alto | Semana / mes |
+| **Re-selección** | re-elegidos vía `auto_arima` / AIC | re-estimados | Muy alto | Trimestre / año |
 
 . . .
 
-**Receta:** `append` en cada paso, **refit cada $N$ pasos** (más no-estacionariedad ⇒ más refit). Lo formalizaremos como **walk-forward** en Sesión 3.
+**Receta:**
+
+- `append` cada paso
+- **refit cada $N$ pasos**
+- re-selección sólo si los datos cambian sustancialmente
 
 ---
 

@@ -1,5 +1,6 @@
 .env
 .playwright-cli
+.screenshots/
 
 # Python
 __pycache__/

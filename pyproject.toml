@@ -10,10 +10,10 @@ requires-python = ">=3.12,<3.14"
 dependencies = [
     # Core data stack
     "numpy>=1.26",
-    "pandas>=2.2,<3",     # pastas 1.11 no soporta pandas 3.0 (freq 'D' rota)
+    "pandas>=2.2,<3", # pastas 1.11 no soporta pandas 3.0 (freq 'D' rota)
     "scipy>=1.13",
-    "openpyxl>=3.1",            # leer .xlsx (piezometría CHD)
-    "python-calamine>=0.2",     # leer .xlsx del SAIH (openpyxl falla por atributos nuevos)
+    "openpyxl>=3.1", # leer .xlsx (piezometría CHD)
+    "python-calamine>=0.2", # leer .xlsx del SAIH (openpyxl falla por atributos nuevos)
     # Visualización
     "matplotlib>=3.8",
     "seaborn>=0.13",
@@ -38,12 +38,12 @@ dependencies = [
     # Utilidades
     "requests>=2.31",
     "tqdm>=4.66",
+    "pmdarima>=2.1.1",
 ]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.4",
-    "nbstripout>=0.7",
+    "ruff>=0.4"
 ]
 
 [build-system]

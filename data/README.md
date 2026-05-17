@@ -32,7 +32,7 @@ notebooks acceden con `from cst import datos as ud`.
   - `GUADALQUIVIR_estaf.csv` — catálogo (coordenadas, código SAIH equivalente).
   - `GUADALQUIVIR_evap.csv` — precipitación y evaporación mensual en
     estaciones evaporimétricas (en embalses).
-- **Fuente:** CEDEX-CEH, [Anuario de Aforos](https://ceh.cedex.es/anuarioaforos/).
+- **Fuente:** CEDEX-CEH, [Anuario de Aforos](https://ceh.cedex.es/anuarioaforos/demarcaciones.asp).
   Cobertura hasta el año hidrológico **2020-21**.
 - **Acceso:** `ud.descargar_anuario_csv(...)` (HTTP, cacheado),
   `ud.cargar_anuario_caudal(indroea=5020)`,

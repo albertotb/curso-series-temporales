@@ -245,34 +245,52 @@ def _cargar_saih_excel_horario() -> pd.DataFrame:
     return df
 
 
-def cargar_caudal_genil(indroea_fallback: int = 5020) -> pd.Series:
+def cargar_caudal_genil(source: str = "SAIH", indroea: int = 5020) -> pd.Series:
     """Caudal diario del Genil en `A20_GENIL_TOCON`.
 
-    Prefiere el Excel manual del SAIH si está disponible (resamplea las medias
-    horarias a media diaria); en su defecto, devuelve la serie ROEA indicada
-    (Pinos-Genil 5020 por defecto, datos hasta 2020-12-31).
+    Parámetros
+    ----------
+    source : {"SAIH", "CEDEX"}
+        - `"SAIH"` (por defecto): medias horarias del Excel manual del SAIH
+          resampleadas a media diaria (≈2018-presente). Si el Excel no está
+          disponible, cae al Anuario de Aforos.
+        - `"CEDEX"`: serie ROEA del Anuario de Aforos (Pinos-Genil 5020 por
+          defecto, 1995-2020).
+    indroea : int
+        Código ROEA usado cuando `source="CEDEX"` (o como fallback).
     """
-    if RUTA_SAIH_XLSX.exists():
+    if source not in {"SAIH", "CEDEX"}:
+        raise ValueError(f"source debe ser 'SAIH' o 'CEDEX', no {source!r}")
+    if source == "SAIH" and RUTA_SAIH_XLSX.exists():
         horario = _cargar_saih_excel_horario()[_SAIH_COL_CAUDAL]
         diario = horario.resample("D").mean()
         diario.name = "caudal_A20_GENIL_TOCON"
         return diario
-    return cargar_anuario_caudal(indroea_fallback)
+    return cargar_anuario_caudal(indroea)
 
 
-def cargar_lluvia_genil(ref_evap_fallback: int = 5001) -> pd.Series:
+def cargar_lluvia_genil(source: str = "SAIH", ref_evap: int = 5001) -> pd.Series:
     """Lluvia diaria (mm) del pluviómetro SAIH `A20_202` (cluster Genil-Tocón).
 
-    Lee el Excel del SAIH y suma los acumulados horarios a total diario. Si el
-    Excel no está disponible, devuelve como sustituto la precipitación mensual
-    en Iznájar (ref_evap=5001) del Anuario de Aforos.
+    Parámetros
+    ----------
+    source : {"SAIH", "CEDEX"}
+        - `"SAIH"` (por defecto): acumulados horarios del Excel del SAIH sumados
+          a total diario (≈2018-presente). Si el Excel no está disponible, cae
+          a la serie mensual del Anuario.
+        - `"CEDEX"`: precipitación **mensual** del Anuario de Aforos en la
+          estación pluvio-evaporativa indicada (Iznájar 5001 por defecto).
+    ref_evap : int
+        Código de la estación pluvio-evaporativa cuando `source="CEDEX"`.
     """
-    if RUTA_SAIH_XLSX.exists():
+    if source not in {"SAIH", "CEDEX"}:
+        raise ValueError(f"source debe ser 'SAIH' o 'CEDEX', no {source!r}")
+    if source == "SAIH" and RUTA_SAIH_XLSX.exists():
         horario = _cargar_saih_excel_horario()[_SAIH_COL_LLUVIA]
         diario = horario.resample("D").sum(min_count=1)
         diario.name = "lluvia_A20_202"
         return diario
-    return cargar_anuario_precip_mensual(ref_evap_fallback)
+    return cargar_anuario_precip_mensual(ref_evap)
 
 
 # -----------------------------------------------------------------------------

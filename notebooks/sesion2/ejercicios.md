@@ -235,3 +235,58 @@ print('Persistencia anual NSE:', nse(obs, persistencia))
 ```
 
 > En cuencas con estacionalidad fuerte, `y_{t-12}` es difícil de batir. Si tu modelo no lo gana, repensar.
+
+---
+
+## 2.5 · Prophet — tuning sobre datos diarios SAIH
+
+### 1. Lluvia diaria sin lag
+
+```python
+df['lluvia_0d'] = df['lluvia']   # sin acumulado, sin shift
+# repetir grid usando 'lluvia_0d' en add_regressor
+```
+
+> *Discusión:* el RMSE empeora ~10-20 %. La respuesta del Genil al impulso de lluvia no es instantánea (hay tránsito + acuíferos) — `lluvia_7d.shift(1)` empaqueta esa memoria. Para Prophet importa más la elección del regresor que el `regressor_prior_scale`.
+
+### 2. Sin regresor
+
+```python
+m = Prophet(yearly_seasonality=10, weekly_seasonality=False,
+            daily_seasonality=False, changepoint_prior_scale=0.01)
+m.fit(train[['ds', 'y']])
+```
+
+> El RMSE sube de ~2.2 a ~3.5: en daily la lluvia hace la mitad del trabajo. Útil para distinguir qué parte de la mejora viene de Prophet vs del input físico.
+
+### 3. Fourier order
+
+```python
+grid['yearly_seasonality'] = [5, 10, 20]
+```
+
+> 20 sobreajusta el patrón anual de los años húmedos y empeora CV-RMSE; 5 infraajusta el doble pico marzo-abril/octubre. 10 (default) suele ser óptimo aquí — confirma la elección por defecto.
+
+### 4. Reto · crecida feb 2026
+
+```python
+train_full = df[df['ds'] < pd.Timestamp('2026-02-01')]
+test_flood = df[(df['ds'] >= '2026-02-01') & (df['ds'] < '2026-03-01')]
+m, _, _ = fit_and_score({k: best[k] for k in grid})  # mejor del grid
+fc = m.predict(test_flood[['ds', 'lluvia_7d']])
+print('Pico real :', test_flood['y'].max(), 'm³/s')
+print('Pico Prophet:', fc['yhat'].max(), 'm³/s')
+```
+
+> Prophet pronostica un pico de ~10-15 m³/s para un evento real de 312. La regresión lineal sobre lluvia + curva determinista **no extrapola** fuera del rango de entrenamiento. Justifica las sesiones 3-4: modelos no lineales (boosting, redes) pueden captar la relación lluvia → caudal en régimen de crecida si reciben features adecuados.
+
+### 5. Discusión · ¿por qué el tuning manda aquí y no en mensual?
+
+| | Mensual (slides) | Diario (este ejercicio) |
+|---|---|---|
+| n (train) | ~270 | ~2550 |
+| Señal estacional vs ruido | dominada por ciclo anual claro | ciclo anual + estiaje + eventos |
+| Sensibilidad a `cps` | baja (poca varianza intra-año) | alta (drought 2022-23 induce changepoints espurios si `cps>0.05`) |
+| Mejora absoluta del tuning | 0.6 % | ~18 % |
+
+> **Lección:** la falta de mejora con tuning en mensual no es una propiedad de Prophet, es una propiedad del *problema*. En agregaciones bajas la estructura es tan simple que cualquier configuración razonable funciona. En daily, los priors importan.
