@@ -950,10 +950,6 @@ Y siempre: evaluar con métricas **hidrológicas** (NSE, KGE) además de RMSE/MA
 - **Elegir según el problema**: covariables → SARIMAX; sin covariables → ETS; sucio / festivos / changepoints → Prophet; piezometría irregular → Pastas/TFN.
 - **Pronóstico ≠ un punto**: comunicar **intervalos** (crecen con el horizonte). En producción: `append` + refit periódico.
 
-. . .
-
-Las **métricas hidrológicas** (NSE, KGE) se desarrollan formalmente en la **Sesión 3**.
-
 ---
 
 ## Práctica (3h 15min)

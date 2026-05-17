@@ -44,9 +44,8 @@ LLUVIA = ud.cargar_lluvia_genil_diaria(fecha_inicio="1995-01-01", fecha_fin="202
 
 1. **De serie a supervisado** — sliding window, feature engineering — *45 min*
 2. **Modelos clásicos de ML** — Ridge, RF, XGBoost, LightGBM — *45 min*
-3. **Predicción multi-paso** — recursive, direct, DirRec, MIMO — *30 min*
-4. **Splits temporales y CV** — TimeSeriesSplit, backtesting — *30 min*
-5. **Métricas hidrológicas** — NSE, KGE, error en pico, probabilísticas — *30 min*
+3. **Selección y evaluación** — splits, métricas genéricas e hidrológicas, SHAP/permutation — *60 min*
+4. **Predicciones a futuro** — multi-paso, intervalos — *30 min*
 
 ---
 
@@ -84,26 +83,18 @@ print(X.head())
 
 **1. Autoregresivas (lags y diferencias)**
 
-- `lag_1`, `lag_7`, `lag_30`...
-- `diff_1 = y_t - y_{t-1}`.
+- `lag_1`, `lag_7`, `lag_30`; `diff_1 = y_t - y_{t-1}`.
 
 **2. Estadísticos móviles (rolling)**
 
 - `rolling_mean_7`, `rolling_std_30`, `rolling_max_90`...
 
-**3. Calendario**
+**3. Calendario (cíclicas)**
 
-- Mes, día del año, día de la semana, año hidrológico.
+- Mes, día del año, día de la semana, hora, año hidrológico.
+- Codificación: **entero** o par de **Fourier** $\sin/\cos(2\pi t/s)$ → ver más adelante.
 
----
-
-## Tipos de features (cont.)
-
-**4. Fourier**
-
-- $\sin(2\pi t / s)$, $\cos(2\pi t / s)$ → estacionalidad continua.
-
-**5. Exógenas**
+**4. Exógenas**
 
 - Lluvia retardada, ET₀, índices climáticos (NAO).
 
@@ -130,7 +121,7 @@ print(feats.tail(5).round(2))
 #| label: rolling-fig
 #| echo: false
 #| fig-cap: "Caudal vs media móvil 30 días — la suavización es la fuente del feature"
-ventana = CAUDAL.loc["2014":"2016"].dropna()
+ventana = CAUDAL.loc["2019":"2020"].dropna()
 fig, ax = plt.subplots()
 ax.plot(ventana.index, ventana.values, color="#1f6f8b", lw=0.4, alpha=0.6, label="diario")
 ax.plot(ventana.index, ventana.rolling(30).mean(), color="#c2410c", lw=1.6, label="rolling 30d")
@@ -140,27 +131,56 @@ plt.tight_layout()
 
 ---
 
-## Calendario y Fourier
+## Codificación cíclica (Fourier)
 
+:::: {.columns}
+::: {.column width="58%"}
+**Problema:** `mes=12` (dic) y `mes=1` (ene) son **adyacentes** en el ciclo anual, pero el modelo los ve a distancia 11.
+
+**Solución:** proyectar un ciclo de periodo $s$ sobre el círculo unidad:
+
+$$
+\sin\!\left(\tfrac{2\pi t}{s}\right), \quad \cos\!\left(\tfrac{2\pi t}{s}\right)
+$$
+
+La distancia entre dos puntos $(\sin, \cos)$ refleja la distancia **cíclica**, no la numérica.
+:::
+
+::: {.column width="42%"}
 ```{python}
-#| label: calendario
-#| echo: true
-def features_calendario(idx):
-    return pd.DataFrame({
-        "mes":   idx.month,
-        "doy":   idx.dayofyear,
-        "dow":   idx.dayofweek,
-        "sin_an": np.sin(2 * np.pi * idx.dayofyear / 365.25),
-        "cos_an": np.cos(2 * np.pi * idx.dayofyear / 365.25),
-    }, index=idx)
-
-cal = features_calendario(CAUDAL.dropna().index[:5])
-print(cal)
+#| label: fourier-circle
+#| echo: false
+m = np.arange(1, 13)
+x, y = np.cos(2 * np.pi * m / 12), np.sin(2 * np.pi * m / 12)
+fig, ax = plt.subplots(figsize=(3.2, 3.2))
+theta = np.linspace(0, 2 * np.pi, 200)
+ax.plot(np.cos(theta), np.sin(theta), color="#cbd5e1", lw=0.8)
+ax.scatter(x, y, s=70, color="#1f6f8b", zorder=3)
+for mi, xi, yi in zip(m, x, y):
+    ax.annotate(str(mi), (xi * 1.20, yi * 1.20), ha="center", va="center", fontsize=10)
+ax.set_xlim(-1.4, 1.4); ax.set_ylim(-1.4, 1.4)
+ax.set_aspect("equal"); ax.axis("off")
+plt.tight_layout()
 ```
+:::
+::::
+
+---
+
+## Codificación cíclica: ejemplos
+
+Cualquier variable **cíclica** se codifica con su par $(\sin, \cos)$ usando el periodo $s$ apropiado:
+
+| Feature | Periodo $s$ | Pareja de columnas |
+|---|---|---|
+| Hora del día | 24 | $\sin/\cos(2\pi h / 24)$ |
+| Día de la semana | 7 | $\sin/\cos(2\pi d / 7)$ |
+| Mes | 12 | $\sin/\cos(2\pi m / 12)$ |
+| Día del año | 365.25 | $\sin/\cos(2\pi \mathrm{doy} / 365.25)$ |
 
 . . .
 
-**Tip:** las variables Fourier son más útiles que `mes` para árboles, porque preservan **continuidad** entre diciembre y enero.
+Las features **no cíclicas** (año, tendencia) **no** se codifican así — sólo las que "dan la vuelta".
 
 ---
 
@@ -216,6 +236,7 @@ Los $\beta_k$ forman la IRF **empírica, no paramétrica**: un peso por lag.
 - `rolling_mean(window=7, center=True)` — ¡ve 3 días al futuro!
 - Escalador `StandardScaler.fit_transform(X)` en el set completo → la media del test contamina el train.
 - `df['y_smooth'] = df['y'].rolling(30).mean()` y luego usar `y_smooth` como feature.
+- Observaciones en lugar de predicciones
 
 ---
 
@@ -303,14 +324,14 @@ Tres baselines que un modelo debe **batir** para ser usable:
 #| label: baselines
 #| echo: true
 caudal_m = CAUDAL.resample("MS").mean().dropna()
-test = caudal_m.loc["2018":]
-train = caudal_m.loc[:"2017"]
+train = caudal_m.loc[:"2019"]
+test = caudal_m.loc["2020":]
 
-persistencia_s = test.shift(12).combine_first(train.iloc[-12:])
+persistencia_s = caudal_m.shift(12).loc[test.index]
 clim = train.groupby(train.index.month).mean().reindex(test.index.month).values
 
-print("Persistencia anual MAE:", abs(test - persistencia_s.iloc[:len(test)]).mean().round(2))
-print("Climatología     MAE:", abs(test.values - clim).mean().round(2))
+print(f"Persistencia anual MAE: {abs(test - persistencia_s).mean():.2f}")
+print(f"Climatología      MAE: {abs(test.values - clim).mean():.2f}")
 ```
 
 ---
@@ -378,33 +399,6 @@ model = lgb.LGBMRegressor(n_estimators=500, learning_rate=0.05,
 
 ---
 
-## Interpretabilidad: SHAP
-
-**Shapley Additive Explanations** — descomposición justa de la predicción en contribuciones por feature.
-
-```python
-import shap
-explainer = shap.TreeExplainer(model)
-shap_values = explainer(X_test)
-shap.plots.beeswarm(shap_values)
-```
-
----
-
-## SHAP — para qué sirve
-
-**Útil para:**
-
-- Validar que el modelo "piensa" lo que esperamos (lag-1, lluvia reciente → caudal alto).
-- Detectar features inútiles o tramposas.
-- Reportar a clientes técnicos no-ML.
-
-. . .
-
-> SHAP funciona en TODO modelo (KernelExplainer es lento pero universal), pero es **especialmente eficiente** en modelos de árbol.
-
----
-
 ## skforecast — el puente al forecasting
 
 `scikit-learn` no sabe predecir multi-paso. **`skforecast`** lo arregla:
@@ -435,146 +429,11 @@ preds = forecaster.predict(steps=30, exog=lluvia_test)
 
 - **Ridge** como baseline serio.
 - **RF y boosting** ganan cuando hay interacciones no lineales o eventos extremos.
-- **SHAP** para auditar.
 - **`skforecast`** convierte regresores sklearn en forecasters multi-paso.
 
 ---
 
-## Bloque 3 · Predicción multi-paso {.section-divider}
-
----
-
-## El problema
-
-Hasta ahora: predecir $y_{t+1}$ dado el pasado. Pero a menudo queremos $y_{t+1}, y_{t+2}, \ldots, y_{t+h}$.
-
-**¿Cómo?** Cuatro estrategias clásicas, cada una con sus pros y contras.
-
----
-
-## Estrategia 1 — Recursiva
-
-::: {.model-flow}
-::: {.model-box}
-**Modelo**
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-$\hat y_{t+1}$
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-**Modelo**
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-$\hat y_{t+2}$
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-**Modelo**
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-$\hat y_{t+3}$
-:::
-:::
-
-*(el mismo modelo aplicado recursivamente, alimentado con su predicción anterior)*
-
-. . .
-
-- **Idea:** entrenar un modelo de 1 paso y re-aplicarlo $h$ veces.
-- **Pros:** un solo modelo; aprovecha la estructura autorregresiva.
-- **Contras:** **acumulación de error** — errores de paso 1 se amplifican en paso $h$.
-
----
-
-## Estrategia 2 — Directa
-
-::: {.model-flow}
-::: {.model-stack}
-::: {.model-row}
-::: {.model-box}
-**Modelo h=1**
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-$\hat y_{t+1}$
-:::
-:::
-::: {.model-row}
-::: {.model-box}
-**Modelo h=2**
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-$\hat y_{t+2}$
-:::
-:::
-::: {.model-row}
-::: {.model-box}
-**Modelo h=3**
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-$\hat y_{t+3}$
-:::
-:::
-:::
-:::
-
-- **Idea:** un modelo distinto para cada horizonte.
-- **Pros:** no propaga error. Cada modelo optimiza directamente su horizonte.
-- **Contras:** **$h$ modelos** que entrenar; más datos necesarios.
-
----
-
-## Estrategias 3 y 4 — DirRec y MIMO
-
-**DirRec (Direct-Recursive):** un modelo por horizonte, pero cada uno usa las predicciones anteriores como features adicionales.
-
-. . .
-
-**MIMO (Multiple-Input Multiple-Output):** un modelo que predice **todo el vector** $(\hat y_{t+1}, \ldots, \hat y_{t+h})$ a la vez.
-
-- Captura dependencias entre horizontes.
-- Pide modelos que soporten multi-output nativo (sklearn `MultiOutputRegressor`, redes neuronales).
-
----
-
-## Comparativa rápida
-
-| Estrategia | #modelos | Error acumulado | Coste cómputo | Cuándo elegir |
-|---|---|---|---|---|
-| Recursive | 1 | Sí | Bajo | $h$ corto, datos pocos |
-| Direct | $h$ | No | Alto | $h$ medio (3–30) |
-| DirRec | $h$ | Bajo | Alto | $h$ medio, no-linealidad |
-| MIMO | 1 | No | Medio | $h$ grande, dependencias entre horizontes |
-
-. . .
-
-**En skforecast:** `ForecasterRecursive`, `ForecasterDirect`, `ForecasterDirectMultiVariate`...
-
----
-
-## Bloque 4 · Splits temporales {.section-divider}
+## Bloque 3 · Selección de modelo y evaluación {.section-divider}
 
 ---
 
@@ -680,21 +539,70 @@ metricas, predicciones = backtesting_forecaster(
 
 ---
 
-## Bloque 5 · Métricas hidrológicas {.section-divider}
+## Métricas — ¿qué medimos?
+
+Una vez tenemos split y predicciones $\hat y_t$ vs observados $o_t$, las **resumimos** con números:
+
+- **Genéricas**: agregadas sobre todo el test — MAE, RMSE, MAPE, WAPE, sMAPE.
+- **Hidrológicas**: diseñadas para capturar picos, estiaje y sesgo de volumen — NSE, KGE, PBIAS.
+
+. . .
+
+Una métrica nunca cuenta toda la historia. **Reportar al menos 2-3**, idealmente con un gráfico predicho vs observado.
+
+---
+
+## Métricas genéricas — absolutas y cuadráticas
+
+$$
+\mathrm{MAE} = \tfrac{1}{n} \sum_t |o_t - p_t| \quad
+\mathrm{MSE} = \tfrac{1}{n} \sum_t (o_t - p_t)^2 \quad
+\mathrm{RMSE} = \sqrt{\mathrm{MSE}}
+$$
+
+- **MAE**: mismas unidades que $y$, robusto a outliers (mediana del error absoluto).
+- **MSE / RMSE**: penalizan **errores grandes** cuadráticamente — sensibles a picos.
+- **RMSE** se reporta más que MSE por estar en las mismas unidades que $y$.
+
+. . .
+
+**Regla rápida:** si importan los picos → RMSE. Si quieres "promedio honesto" → MAE.
+
+---
+
+## Métricas genéricas — porcentuales
+
+$$
+\mathrm{MAPE} = \tfrac{100}{n} \sum_t \tfrac{|o_t - p_t|}{|o_t|} \qquad
+\mathrm{WAPE} = 100 \cdot \tfrac{\sum_t |o_t - p_t|}{\sum_t |o_t|}
+$$
+
+$$
+\mathrm{sMAPE} = \tfrac{100}{n} \sum_t \tfrac{|o_t - p_t|}{(|o_t| + |p_t|)/2}
+$$
+
+- **MAPE**: interpretable como "% de error". **Explota** si $o_t \approx 0$ (estiaje).
+- **WAPE**: ponderado por magnitud, más estable que MAPE con ceros o valores pequeños.
+- **sMAPE**: simétrico (no privilegia sobre/infraestimación), menos interpretable.
+
+. . .
+
+**Para caudales con estiaje severo: usar WAPE o RMSE/MAE; evitar MAPE.**
 
 ---
 
 ## Por qué métricas hidrológicas
 
-Métricas genéricas (RMSE, MAE, MAPE) son **promedio**. En hidrología nos importa:
+Las genéricas son **promedios**. En hidrología nos importan también aspectos específicos:
 
-- **Picos** (crecidas).
-- **Estiaje** (sequía).
-- **Sesgo** (volumen acumulado para gestión de embalse).
+- **Picos** (crecidas) → error en pico, NSE.
+- **Estiaje** (sequía) → log-NSE, BFI.
+- **Sesgo de volumen** (gestión de embalse) → PBIAS, $\beta$ de KGE.
+- **Forma de la curva** (timing, recesión) → $r$ y $\alpha$ de KGE.
 
 . . .
 
-Las métricas hidrológicas están diseñadas para capturar estos aspectos.
+Las métricas hidrológicas son **descomposiciones** o **ponderaciones** específicas de las genéricas, no las sustituyen.
 
 ---
 
@@ -709,6 +617,10 @@ $$
 - $1$ = perfecto.
 - $0$ = igual de bueno que predecir la media.
 - $< 0$ = peor que predecir la media.
+
+. . .
+
+Equivale a $1 - \mathrm{MSE}/\mathrm{Var}(o)$ — el **MSE relativo** a la varianza observada.
 
 ---
 
@@ -782,7 +694,286 @@ Negativo = sobreestima. Positivo = infraestima. Crítico para balance hídrico a
 
 ---
 
-## Predicción probabilística (mención)
+## Interpretabilidad: SHAP
+
+**Shapley Additive Explanations** — descomposición justa de la predicción en contribuciones por feature.
+
+- Cada predicción $\hat y_i$ se descompone como $\phi_0 + \sum_j \phi_{ij}$, donde $\phi_{ij}$ es la contribución de la feature $j$ a la predicción $i$.
+- Los pesos $\phi$ vienen de la **teoría de juegos** (valor de Shapley): reparto "justo" entre features cooperando.
+- Resultado: una matriz `(n_samples, n_features)` que permite tanto explicaciones globales (importancia agregada) como **locales** (predicción concreta).
+
+---
+
+## Modelo de ejemplo — caudal del Genil
+
+```{python}
+#| label: ex-model
+#| echo: true
+import lightgbm as lgb
+
+df = pd.DataFrame({"y": CAUDAL, "lluvia": LLUVIA}).dropna()
+for lag in (1, 2, 7, 30):
+    df[f"lag_{lag}"] = df["y"].shift(lag)
+for lag in (1, 3, 7):
+    df[f"lluvia_lag{lag}"] = df["lluvia"].shift(lag)
+df["lluvia_acum7"]  = df["lluvia"].rolling(7).sum().shift(1)
+df["lluvia_acum30"] = df["lluvia"].rolling(30).sum().shift(1)
+df["sin_an"] = np.sin(2 * np.pi * df.index.dayofyear / 365.25)
+df["cos_an"] = np.cos(2 * np.pi * df.index.dayofyear / 365.25)
+df = df.drop(columns="lluvia").dropna()
+
+train, test = df.loc[:"2020-01-01"], df.loc["2020-01-01":]
+X_tr, y_tr = train.drop(columns="y"), train["y"]
+X_te, y_te = test.drop(columns="y"),  test["y"]
+
+model = lgb.LGBMRegressor(n_estimators=400, learning_rate=0.05,
+                          num_leaves=31, min_child_samples=20, verbose=-1)
+model.fit(X_tr, y_tr)
+print(f"MAE test: {abs(model.predict(X_te) - y_te).mean():.2f} m³/s")
+```
+
+---
+
+## SHAP — beeswarm del modelo
+
+```{python}
+#| label: ex-shap-beeswarm
+#| echo: false
+#| fig-align: center
+import shap
+explainer = shap.TreeExplainer(model)
+shap_values = explainer(X_te)
+shap.summary_plot(shap_values.values, X_te, max_display=11,
+                  plot_size=(9, 4), show=False)
+plt.tight_layout()
+```
+
+**Lectura:** un punto = un día del test. Color = valor de la feature (rojo alto, azul bajo). Eje x = contribución a $\hat y$. `lag_1` y `lluvia_lag1` dominan; valores altos (rojo) elevan la predicción.
+
+---
+
+## SHAP — explicar predicciones concretas
+
+```{python}
+#| label: shap-waterfall-export
+#| echo: false
+#| include: false
+import os
+os.makedirs("img-gen", exist_ok=True)
+for day, fname in [("2020-01-26", "wf_caso1.png"), ("2020-04-13", "wf_caso2.png")]:
+    plt.close("all")
+    plt.figure(figsize=(6, 4.5))
+    shap.plots.waterfall(shap_values[X_te.index.get_loc(day)], max_display=11, show=False)
+    plt.tight_layout()
+    plt.savefig(f"img-gen/{fname}", dpi=110, bbox_inches="tight")
+    plt.close("all")
+```
+
+:::: {.columns}
+::: {.column width="50%"}
+**Caso 1 — 26 ene 2020**: día tras el pico de crecida ($y_{t-1}=22.85$).
+
+![](img-gen/wf_caso1.png){.nostretch fig-align="center" width="100%"}
+:::
+::: {.column width="50%"}
+**Caso 2 — 13 abr 2020**: primavera, sin pico reciente.
+
+![](img-gen/wf_caso2.png){.nostretch fig-align="center" width="100%"}
+:::
+::::
+
+---
+
+## SHAP — leyendo los waterfalls
+
+- **$E[f(X)] = 6.7$ m³/s** es la predicción media del modelo (baseline). Cada feature mueve la predicción $\pm$ su valor SHAP hasta el $f(x)$ final.
+
+. . .
+
+- **Caso 1 (inercia):** `lag_1=22.85` aporta **+10.47** él solo; el resto $<1$. El modelo arrastra el pico de ayer → $\hat y = 16.66$.
+- **Caso 2 (varias señales):** sin pico reciente, **6 features** se reparten el efecto: lluvia (+1.17), estacionalidad de primavera (+1.01), lag_1 bajo (−0.99)... → $\hat y = 8.1$.
+
+. . .
+
+> Útil para auditar predicciones individuales: cuando el cliente pregunta "¿por qué predices crecida mañana?", el waterfall responde feature a feature.
+
+---
+
+## SHAP — para qué sirve
+
+**Útil para:**
+
+- Validar que el modelo "piensa" lo que esperamos (lag-1, lluvia reciente → caudal alto).
+- Detectar features inútiles o tramposas.
+- Explicar **predicciones individuales** (waterfall, force plots) a clientes técnicos no-ML.
+
+. . .
+
+> SHAP funciona en TODO modelo (`KernelExplainer` es lento pero universal), pero es **especialmente eficiente** en modelos de árbol (`TreeExplainer`).
+
+---
+
+## Permutation importance
+
+Idea: **barajar los valores de una feature** entre observaciones y medir cuánto **empeora** la métrica del modelo. Si empeora mucho → la feature aportaba; si no cambia → es prescindible.
+
+```{python}
+#| label: ex-perm
+#| echo: true
+from sklearn.inspection import permutation_importance
+pi = permutation_importance(
+    model, X_te, y_te, n_repeats=10, random_state=0,
+    scoring="neg_mean_absolute_error",
+)
+```
+
+- **Agnóstico al modelo** (no usa la estructura interna).
+- Calculado sobre el **test**, así que mide impacto en **generalización**, no en ajuste.
+- Sesgo conocido: features **correlacionadas** se reparten la importancia y todas parecen poco útiles.
+
+---
+
+## Permutation importance — resultado
+
+```{python}
+#| label: ex-perm-fig
+#| echo: false
+#| fig-cap: "Caída de MAE al barajar cada feature (10 repeticiones) — caudal del Genil 2020"
+order = pi.importances_mean.argsort()
+fig, ax = plt.subplots(figsize=(7.5, 3.6))
+ax.boxplot(pi.importances[order].T, vert=False, labels=X_tr.columns[order])
+ax.set_xlabel("Δ MAE al barajar (mayor = más importante)")
+ax.axvline(0, color="grey", lw=0.6)
+plt.tight_layout()
+```
+
+. . .
+
+**SHAP vs permutation:** el ranking suele coincidir en lo importante, pero discrepan en colas. SHAP es **más informativo** (signo y magnitud por observación); permutation es **más rápido de interpretar** para un decisor (una métrica, un número).
+
+---
+
+## Resumen Bloque 3
+
+- **Split temporal** + backtesting: nunca romper causalidad; evaluar sobre varias ventanas.
+- **Métricas genéricas** (MAE/RMSE/WAPE) + **hidrológicas** (NSE/KGE/PBIAS/error pico) — reportar varias, nunca una sola.
+- **SHAP** y **permutation importance** auditan el modelo más allá del número agregado.
+- Cuidado con: test corto, MAPE en series con ceros, NSE como única métrica.
+
+---
+
+## Bloque 4 · Predicciones a futuro {.section-divider}
+
+---
+
+## El problema
+
+Hasta ahora: predecir $y_{t+1}$ dado el pasado. Pero a menudo queremos $y_{t+1}, y_{t+2}, \ldots, y_{t+h}$.
+
+**¿Cómo?** Cuatro estrategias clásicas, cada una con sus pros y contras.
+
+---
+
+## Estrategia 1 — Recursiva
+
+![](img/diagram-recursive.png){.nostretch fig-align="center" width="72%"}
+
+. . .
+
+- **Un solo modelo** de 1 paso aplicado $h$ veces, alimentado con su propia predicción.
+- **Pros:** un único modelo. **Contras:** acumulación de error.
+- skforecast: `ForecasterRecursive` (default).
+
+---
+
+## Estrategia 2 — Directa
+
+![](img/diagram-direct.png){.nostretch fig-align="center" width="68%"}
+
+- **$h$ modelos independientes**, uno por horizonte.
+- **Pros:** no propaga error. **Contras:** $h$ veces más cómputo; predicciones independientes (no suaves entre horizontes).
+- skforecast: `ForecasterDirect` (`n_jobs` paraleliza el entrenamiento).
+
+---
+
+## Estrategias 3 y 4 — DirRec y MIMO
+
+**DirRec (Direct-Recursive):** un modelo por horizonte (como Direct), pero cada uno recibe **las predicciones de los modelos anteriores** como features adicionales. Híbrido entre direct y recursive.
+
+. . .
+
+**MIMO (Multiple-Input Multiple-Output):** un modelo que predice **todo el vector** $(\hat y_{t+1}, \ldots, \hat y_{t+h})$ a la vez.
+
+- Captura dependencias entre horizontes y produce trayectorias coherentes.
+- Pide modelos con multi-output nativo: `MultiOutputRegressor`, redes neuronales (LSTM, GRU).
+- En skforecast: `ForecasterRnn` para deep learning.
+
+. . .
+
+> DirRec **no está implementado en skforecast** — habría que montarlo a mano o usar otra librería.
+
+---
+
+## Comparativa de estrategias
+
+| Estrategia | #modelos | Error acumulado | Coste cómputo | Cuándo elegir |
+|---|---|---|---|---|
+| Recursive | 1 | Sí | Bajo | $h$ corto, pocos datos |
+| Direct | $h$ | No | Alto | $h$ medio (3–30) |
+| DirRec | $h$ | Bajo | Alto | $h$ medio, no-linealidad |
+| MIMO | 1 | No | Medio | $h$ grande, dependencias entre horizontes |
+
+. . .
+
+**En skforecast:** `ForecasterRecursive`, `ForecasterDirect`, `ForecasterRnn`.
+
+---
+
+## ¿Toda estrategia vale con todo modelo?
+
+No. La estrategia depende de qué **espera el modelo como salida**:
+
+| Modelo | Recursive | Direct | DirRec | MIMO |
+|---|:---:|:---:|:---:|:---:|
+| ARIMA / SARIMAX | ✓ | ✗ | ✗ | ✗ |
+| ETS / Theta | ✓ | ✗ | ✗ | ✗ |
+| Ridge / Lasso | ✓ | ✓ | ✓ | con `MultiOutputRegressor` |
+| RF / XGB / LGBM | ✓ | ✓ | ✓ | con `MultiOutputRegressor` |
+| LSTM / GRU / Transformer | ✓ | ✓ | ✓ | ✓ (nativo) |
+
+. . .
+
+Los **estadísticos clásicos** (ARIMA, ETS) están casados con la estrategia recursiva: su formulación matemática **es** la que produce las predicciones. Aplicar "directa" sobre un ARIMA rompe la interpretación del modelo. Los modelos **ML** son agnósticos al horizonte — el target lo defines tú.
+
+---
+
+## Series múltiples — global forecaster
+
+![](img/diagram-multiseries-train.png){.nostretch fig-align="center" width="62%"}
+
+- Un único modelo entrenado sobre **muchas series apiladas** que comparten dinámica.
+- Cada fila: lags de una serie + columnas que **identifican qué serie es**.
+- skforecast: `ForecasterRecursiveMultiSeries` o `ForecasterDirectMultiVariate`.
+
+---
+
+## Series múltiples — pros, contras y casos
+
+- **Pros:** más datos → mejor generalización; un único modelo a mantener; series nuevas se predicen sin reentrenar.
+- **Contras:** asume **dinámica compartida**; series muy heterogéneas → peor que un modelo por serie.
+
+. . .
+
+**Casos típicos:**
+
+- Red de pozos en una misma cuenca.
+- Estaciones de caudal vecinas que comparten régimen.
+- Demanda en varias tiendas con perfil similar.
+- Sensores IoT del mismo tipo (mismo equipo, distintas ubicaciones).
+
+---
+
+## Predicción probabilística
 
 En vez de un valor puntual, predecir **distribución**:
 
@@ -793,7 +984,6 @@ En vez de un valor puntual, predecir **distribución**:
 . . .
 
 ```python
-## Ejemplo conformal con skforecast {.section-divider}
 from skforecast.model_selection import ConformalIntervalForecaster
 ci_forecaster = ConformalIntervalForecaster(forecaster, alpha=0.1)
 ci_forecaster.fit(y_train, exog=X_train)
@@ -806,12 +996,10 @@ intervals = ci_forecaster.predict(steps=10, exog=X_test)
 
 ---
 
-## Resumen Bloque 5
+## Resumen Bloque 4
 
-- **NSE** + **KGE** + **PBIAS** + **error en pico** — el panel hidrológico mínimo.
-- NSE penaliza picos mal predichos; KGE permite diagnóstico.
-- Genéricas (RMSE, MAE) siguen útiles pero **no bastan**.
-- Para gestión de avenida: mira el **error en pico**, no el promedio.
+- Horizonte corto, pocos datos → **recursive**; horizonte medio → **direct** o **DirRec**.
+- Para producción: combinar predicción puntual con **intervalos** (conformal prediction en `skforecast`) — cobertura sin asumir distribución.
 
 ---
 
