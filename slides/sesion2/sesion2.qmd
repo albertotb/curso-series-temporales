@@ -945,10 +945,14 @@ Y siempre: evaluar con métricas **hidrológicas** (NSE, KGE) además de RMSE/MA
 
 ## Resumen
 
-- ARIMA, ETS, Prophet, Pastas: 4 herramientas, 4 filosofías. Conocer las cuatro evita usar martillo cuando hace falta llave inglesa.
-- **Antes de modelar:** STL + ACF/PACF + tests (Sesión 1).
-- **Box-Jenkins** sigue siendo la metodología base: identificar → estimar → diagnosticar → predecir.
-- **Métricas hidrológicas** (NSE, KGE, error en pico) > métricas genéricas para evaluar predicción de eventos.
+- **ARIMA, ETS, Prophet, Pastas**: cuatro filosofías — autoregresiva, suavizado recursivo, descomposición con changepoints, respuesta a impulsos (TFN).
+- **Box-Jenkins**: identificar (STL + ACF/PACF + tests) → estimar → **diagnosticar residuos** → pronosticar. Selección: AIC/BIC/AICc o rolling-origin CV.
+- **Elegir según el problema**: covariables → SARIMAX; sin covariables → ETS; sucio / festivos / changepoints → Prophet; piezometría irregular → Pastas/TFN.
+- **Pronóstico ≠ un punto**: comunicar **intervalos** (crecen con el horizonte). En producción: `append` + refit periódico.
+
+. . .
+
+Las **métricas hidrológicas** (NSE, KGE) se desarrollan formalmente en la **Sesión 3**.
 
 ---
 
