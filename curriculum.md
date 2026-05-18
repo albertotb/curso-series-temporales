@@ -316,7 +316,7 @@ Datos de GitHub a fecha **2026-05-13**. Funcionalidades verificadas en la docume
 - `neuralhydrology` — librería **muy relevante temáticamente** (Kratzert et al., el referente del DL hidrológico moderno), pero **mala como herramienta didáctica**: toda la configuración va en archivos YAML, no en código Python. El alumno no escribe modelos ni training loops, solo edita YAML. Útil como **demo/referencia** ("así se hace en research") y como punto de partida para quien quiera ir más allá del curso, pero no como librería de práctica.
 - `darts` — solo si el bloque de comparación final lo justifica; si no, queda como referencia. Además es PyTorch-based, lo que choca con la elección TF/Keras.
 
-**Stack final propuesto por sesión (a validar):**
+**Stack final propuesto por sesión:**
 
 | Sesión | Librerías                                                   |
 | ------ | ----------------------------------------------------------- |
@@ -324,16 +324,3 @@ Datos de GitHub a fecha **2026-05-13**. Funcionalidades verificadas en la docume
 | 2      | `statsmodels` (ARIMA/ETS + residuos), `prophet`, `pastas`   |
 | 3      | `scikit-learn`, `xgboost`, `lightgbm`, `skforecast`, `shap` |
 | 4      | `tensorflow` + `keras` (LSTM/GRU)                           |
-
-### B. Riesgos / cosas que pueden no caber en 5 h
-
-- Sesión 1: la parte de Pastas puede pasarse a Sesión 2 si la limpieza/STL come tiempo.
-- Sesión 3: si la práctica de LSTM no entra, dejarla como demo y trasladar a Sesión 4.
-- Sesión 4: el proyecto final puede convertirse en **tarea para casa** si la comparación de modelos se alarga.
-
-### C. Posibles extensiones (fuera de las 20 h)
-
-- Predicción probabilística (conformal, quantile regression).
-- Causalidad: Granger, transfer entropy.
-- Detección de cambio (changepoint detection) para identificar regímenes hidrológicos.
-- Escenarios climáticos (AdapteCCa) como input a los modelos.
