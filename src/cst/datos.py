@@ -549,6 +549,70 @@ def cargar_lluvia_aemet(
     )
 
 
+def cargar_meteo_aemet(estacion: str = "5530E") -> pd.DataFrame:
+    """DataFrame meteorológico diario completo de `estacion` (todas las columnas).
+
+    Reconstruye el DataFrame uniendo los JSON chunks ya descargados en
+    `data/raw/aemet/<estacion>/chunk_*.json`. **No realiza llamadas a la API**:
+    si la estación o algún tramo no están en local, hay que ejecutar primero
+    `cargar_lluvia_aemet` (que sí descarga) para popular el directorio.
+
+    A diferencia de `cargar_lluvia_aemet`, devuelve TODAS las columnas que da
+    AEMET por día: `tmed`, `tmin`, `tmax`, `prec`, `sol`, `velmedia`, `racha`,
+    `dir`, `presMax`, `presMin`, `hrMedia`, `hrMax`, `hrMin`, más las columnas
+    `horaXxx` con la hora del pico de cada variable.
+
+    Parseo:
+
+    - Columnas numéricas: coma decimal → punto; valores no parseables → NaN.
+    - `prec`: además mapea `"Ip"` → 0.05 mm (lluvia inappreciable),
+      `"Acum"` → NaN (acumulada en otro día).
+    - Columnas `horaXxx`: se dejan **como strings** (`"HH:MM"`, `"Varias"`,
+      `None`). El usuario decide cómo parsearlas.
+
+    Índice: `DatetimeIndex` diario regular (huecos como NaN).
+    """
+    import json
+
+    chunk_dir = RUTA_AEMET / estacion
+    chunks = sorted(chunk_dir.glob("chunk_*.json")) if chunk_dir.exists() else []
+    if not chunks:
+        raise FileNotFoundError(
+            f"No hay chunks descargados en {chunk_dir}. "
+            f"Ejecuta primero `cargar_lluvia_aemet(estacion={estacion!r}, ...)`."
+        )
+
+    registros: list = []
+    for f in chunks:
+        registros.extend(json.loads(f.read_text(encoding="utf-8")))
+
+    df = pd.DataFrame(registros)
+    df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
+    df = (
+        df.dropna(subset=["fecha"])
+        .drop_duplicates(subset="fecha")
+        .set_index("fecha")
+        .sort_index()
+    )
+
+    numeric_cols = [
+        "altitud", "dir", "hrMax", "hrMedia", "hrMin", "presMax", "presMin",
+        "racha", "sol", "tmax", "tmed", "tmin", "velmedia",
+    ]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(
+                df[col].astype(str).str.replace(",", ".", regex=False),
+                errors="coerce",
+            )
+
+    if "prec" in df.columns:
+        df["prec"] = df["prec"].map(_parse_prec_aemet)
+
+    idx = pd.date_range(df.index.min(), df.index.max(), freq="D", name="fecha")
+    return df.reindex(idx)
+
+
 # -----------------------------------------------------------------------------
 # Helpers diagnóstico
 # -----------------------------------------------------------------------------

@@ -79,6 +79,16 @@ $presentation-heading-font: "Source Serif Pro", Palatino, FreeSerif, serif !defa
     max-width: 100%;
   }
 
+  // Variante intermedia: figura más grande que el default pero dejando hueco
+  // para 1–2 líneas de texto debajo. `## Mi título {.medium-fig}`.
+  .slides section.medium-fig figure img,
+  .slides section.medium-fig figure svg,
+  .slides section.medium-fig .cell-output-display img,
+  .slides section.medium-fig .cell-output-display svg {
+    max-height: 440px;
+    max-width: 100%;
+  }
+
   .slides figcaption {
     margin-top: 0.15em;
     font-size: 0.55em;

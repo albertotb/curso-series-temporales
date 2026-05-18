@@ -30,14 +30,14 @@ plt.rcParams.update({
 
 from cst import datos as ud
 
-CAUDAL = ud.cargar_caudal_genil()           # Pinos-Genil ROEA 5020
-LLUVIA_M = ud.cargar_lluvia_genil()        # Iznájar mensual ref_evap=5001
+CAUDAL = ud.cargar_caudal_genil(source="CEDEX")    # Pinos-Genil ROEA 5020 (1995–2020)
+LLUVIA_M = ud.cargar_lluvia_genil(source="CEDEX")  # Iznájar mensual ref_evap=5001
 PIEZO = ud.cargar_piezometria()             # PZ0267014 (Duero)
 ```
 
 ## Bienvenida {.section-divider}
 
-Curso de **4 sesiones (5 h cada una)** centrado en series temporales hidrometeorológicas en Python.
+Curso de **4 sesiones (5 h cada una)** centrado en series temporales en Python.
 
 - Hoy: fundamentos, exploración y limpieza.
 - Mañana: modelos estadísticos (ARIMA, ETS, Prophet, Pastas).
@@ -119,7 +119,7 @@ Se observan: estacionalidad anual, eventos extremos, gaps.
 
 - Descripción / EDA.
 - Predicción puntual a corto/medio plazo.
-- Detección de eventos extremos (crecida, sequía).
+- Predicciones probabilistas.
 
 ---
 
@@ -236,6 +236,28 @@ O multiplicativo: $y_t = T_t \cdot S_t \cdot \varepsilon_t$ (varianza crece con 
 
 ---
 
+## Estacional vs cíclico
+
+|  | **Estacional** ($S_t$) | **Cíclico** ($C_t$) |
+|---|---|---|
+| Periodo | **Fijo y conocido** | Variable, **desconocido** |
+| Duración típica | $\le$ 1 año | $\ge$ 2 años |
+| Magnitud | Relativamente estable | Muy variable |
+| Predictibilidad de picos | Alta (sabes *cuándo*) | Baja a largo plazo |
+
+. . .
+
+**En hidrología:**
+
+- **Estacional**: ciclo anual de caudal (deshielo, lluvia mediterránea de otoño).
+- **Cíclico**: secuencias plurianuales secas/húmedas (NAO/ENSO); ciclos lentos de recarga.
+
+. . .
+
+> STL captura $S$, no $C$: confundirlos y pasar `period=N` te devuelve una estacionalidad **espuria**.
+
+---
+
 ## Aditivo vs multiplicativo
 
 ::: {.columns}
@@ -267,6 +289,50 @@ En la práctica: si dudas, **prueba ambos** y compara residuos.
 
 ---
 
+## Visualizar la estacionalidad — boxplots por mes
+
+Antes de descomponer formalmente, una visualización rápida: **una caja por mes** del año.
+
+```{python}
+#| label: fig-subseries
+#| echo: false
+#| fig-cap: "Distribución del caudal medio mensual del Genil por mes (1995–2020)"
+caudal_m = CAUDAL.resample("MS").mean().loc["1995":"2020"].dropna()
+grupos = [caudal_m[caudal_m.index.month == m].values for m in range(1, 13)]
+fig, ax = plt.subplots(figsize=(9, 3.0))
+ax.boxplot(grupos, labels=["E","F","M","A","M","J","J","A","S","O","N","D"])
+ax.set_ylabel("Q (m³/s)")
+plt.tight_layout()
+```
+
+. . .
+
+Revela de un vistazo: **forma** del ciclo (pico **may-ago** por deshielo de Sierra Nevada, estiaje en otoño), **amplitud** de la estacionalidad y si la varianza crece con el nivel ⇒ pista de patrón **multiplicativo**.
+
+---
+
+## Ruido blanco
+
+La componente $\varepsilon_t$ de la descomposición tiene nombre propio. Una secuencia $\{\varepsilon_t\}$ es **ruido blanco** si:
+
+$$
+\mathbb{E}[\varepsilon_t] = 0, \quad \mathrm{Var}(\varepsilon_t) = \sigma^2, \quad \mathrm{Cov}(\varepsilon_t, \varepsilon_s) = 0 \;\; \forall t \neq s
+$$
+
+. . .
+
+Es **estacionario por construcción** y **no tiene memoria**: el pasado no informa del futuro.
+
+. . .
+
+**¿Por qué es la referencia?**
+
+- Es el "objetivo" del residuo: si tras descomponer (STL) o modelar (ARIMA) el residuo es ruido blanco ⇒ hemos capturado toda la señal.
+- Si **no** lo es ⇒ queda estructura que un modelo puede explotar.
+- Lo formalizaremos con el **test de Ljung-Box** (bloque 3) y al diagnosticar ARIMA (sesión 2).
+
+---
+
 ## Estacionariedad
 
 **Intuición:** una serie es estacionaria tiene la misma media, misma variabilidad y misma forma de oscilar a lo largo del tiempo.
@@ -291,7 +357,7 @@ que la serie es estacionaria — al menos tras transformarla.
 
 ---
 
-## Estacionariedad — ejemplos
+## Estacionariedad — ejemplos {.medium-fig}
 
 ```{python}
 #| label: fig-estacionariedad-demo
@@ -334,7 +400,7 @@ plt.tight_layout()
 
 Dos tests complementarios:
 
-- **ADF** (Augmented Dickey-Fuller): $H_0$ = hay raíz unitaria (no estacionaria).
+- **ADF** (Augmented Dickey-Fuller): $H_0$ = no estacionaria.
   Rechazar $H_0$ con $p < 0.05$ ⇒ estacionaria.
 - **KPSS**: $H_0$ = **es** estacionaria. Rechazar ⇒ no estacionaria.
 
@@ -353,6 +419,28 @@ print(f"KPSS p-valor: {kpss_p:.4f}  (rechaza H0 ⇒ NO estacionaria)")
 
 **Buena práctica:** correr los dos. Conclusiones contradictorias ⇒ revisar
 tendencia y estacionalidad.
+
+---
+
+## Trend-stationary vs difference-stationary
+
+Dos formas distintas de "no ser estacionaria", con **remedios opuestos**:
+
+- **Trend-stationary**: hay una tendencia *determinista*. Estacionaria tras **quitarla**.
+  $y_t = a + b\,t + \eta_t$, con $\eta_t$ estacionario.
+- **Difference-stationary**: la tendencia es *estocástica*. Estacionaria tras **diferenciar**.
+  $\nabla y_t$ es estacionario, $y_t$ no.
+
+. . .
+
+**Confundirlos lleva al modelo equivocado.** ADF y KPSS combinados los distinguen:
+
+| ADF rechaza? | KPSS rechaza? | Conclusión |
+|---|---|---|
+| Sí | No | **Estacionaria** ✓ |
+| No | Sí | **Raíz unitaria** ⇒ diferenciar |
+| Sí | Sí | **Trend-stationary** ⇒ quitar tendencia (no diferenciar) |
+| No | No | Inconcluso ⇒ ampliar muestra / inspección visual |
 
 ---
 
@@ -500,15 +588,16 @@ stl     = STL(serie, period=12, robust=True).fit()
 
 ---
 
-## STL — ejemplo Genil mensual
+## STL — ejemplo Genil mensual {.large-fig}
 
 ```{python}
 #| label: fig-stl
+#| echo: false
 #| fig-cap: "STL del caudal mensual del Genil (1995–2020)"
 from statsmodels.tsa.seasonal import STL
 mensual = CAUDAL.resample("MS").mean().loc["1995":"2020"].interpolate()
 stl = STL(mensual, period=12, robust=True).fit()
-fig = stl.plot(); fig.set_size_inches(9, 5)
+fig = stl.plot(); fig.set_size_inches(11, 6)
 for ax in fig.axes: ax.grid(alpha=0.3)
 plt.tight_layout()
 ```
@@ -548,6 +637,98 @@ estructura que un modelo puede capturar.
 
 ---
 
+## Fuerza de tendencia y estacionalidad
+
+¿Qué fracción de la varianza explica cada componente? (Hyndman & Athanasopoulos, 2021):
+
+$$
+F_T = \max\!\left(0,\; 1 - \frac{\mathrm{Var}(R_t)}{\mathrm{Var}(T_t + R_t)}\right), \qquad
+F_S = \max\!\left(0,\; 1 - \frac{\mathrm{Var}(R_t)}{\mathrm{Var}(S_t + R_t)}\right)
+$$
+
+Valores en $[0, 1]$: 0 = componente ausente, 1 = la componente lo explica todo. Útil para **comparar series** o **periodos** (¿se atenúa la estacionalidad del Genil tras décadas de regulación?).
+
+. . .
+
+```{python}
+#| label: fuerza-componentes
+#| echo: true
+T, S, R = stl.trend, stl.seasonal, stl.resid
+F_T = max(0, 1 - R.var() / (T + R).var())
+F_S = max(0, 1 - R.var() / (S + R).var())
+print(f"F_T (tendencia)      = {F_T:.2f}")
+print(f"F_S (estacionalidad) = {F_S:.2f}")
+```
+
+---
+
+## STL — ejemplo piezometría PZ0267014 {.large-fig}
+
+```{python}
+#| label: fig-stl-piezo
+#| echo: false
+#| fig-cap: "STL de la cota piezométrica mensual PZ0267014 (Duero, 2010–2024)"
+piezo_m = PIEZO.resample("MS").mean().loc["2010":"2024"].interpolate(limit_direction="both")
+stl_piezo = STL(piezo_m, period=12, robust=True).fit()
+fig = stl_piezo.plot(); fig.set_size_inches(11, 6)
+for ax in fig.axes: ax.grid(alpha=0.3)
+plt.tight_layout()
+```
+
+---
+
+## STL — lectura comparada
+
+Mismo método, dos regímenes muy distintos:
+
+```{python}
+#| label: stl-comparada
+#| echo: false
+def fuerza(stl_fit):
+    T, S, R = stl_fit.trend, stl_fit.seasonal, stl_fit.resid
+    return (max(0, 1 - R.var() / (T + R).var()),
+            max(0, 1 - R.var() / (S + R).var()))
+F_T_q, F_S_q = fuerza(stl)
+F_T_p, F_S_p = fuerza(stl_piezo)
+print(f"{'serie':22s} {'F_T':>5s} {'F_S':>5s}")
+print(f"{'Caudal Genil (Q)':22s} {F_T_q:>5.2f} {F_S_q:>5.2f}")
+print(f"{'Piezometría (h)':22s} {F_T_p:>5.2f} {F_S_p:>5.2f}")
+```
+
+. . .
+
+- **Genil**: $F_T \approx F_S \approx 0.2$ — *ninguna* componente domina. Los **eventos extremos** (crecidas) hinchan la varianza residual y "tapan" la señal estacional aunque visualmente sea clara.
+- **Piezometría**: $F_T \approx 0.80$, $F_S \approx 0.26$ ⇒ la **tendencia domina** (régimen lento de recarga/bombeo, cambios decadales).
+
+. . .
+
+> **Implicación:** la primera lectura de un STL debería ser *"¿qué pesa más, qué queda fuera?"*. En piezometría los residuos aún tienen autocorrelación → motiva los modelos de **Pastas** en sesión 2.
+
+---
+
+## Múltiples estacionalidades — MSTL
+
+Series sub-diarias o diarias suelen tener **varios ciclos solapados**:
+
+- Caudal horario: ciclo **diario** (regulación, deshielo) + **semanal** (gestión) + **anual**.
+- Demanda eléctrica, tráfico web: misma estructura.
+
+. . .
+
+STL clásico admite **un único periodo**. La extensión **MSTL** (Bandara, Hyndman & Bergmeir, 2021) ajusta varios periodos secuencialmente, de menor a mayor:
+
+```python
+from statsmodels.tsa.seasonal import MSTL
+mstl = MSTL(serie_horaria, periods=(24, 24*7, 24*365)).fit()
+mstl.plot()
+```
+
+. . .
+
+En este curso usaremos STL con un periodo, pero conviene saber que existe — e **ignorar una estacionalidad real** suele dejar estructura visible en la ACF de los residuos.
+
+---
+
 ## Bloque 3 · Autocorrelación y correlación cruzada {.section-divider}
 
 ---
@@ -562,9 +743,39 @@ $$
 
 . . .
 
-- $\rho(0) = 1$ siempre.
-- Decae a 0 en series estacionarias.
-- Decae **lentamente** si hay tendencia o no-estacionariedad.
+Cómo se interpreta la ACF según el tipo de serie:
+
+- **Estacionaria**: $\hat{\rho}(k) \to 0$ rápido.
+- **Con tendencia**: lags pequeños **grandes y positivos**, decae lentamente.
+- **Estacional**: picos en lags **múltiplos del periodo** ($k = s, 2s, \ldots$).
+- **Tendencia + estacionalidad**: combinación — decaimiento lento con picos superpuestos.
+
+---
+
+## ACF — ¿qué son las bandas de confianza?
+
+Bajo la hipótesis de **ruido blanco**, la ACF muestral $\hat{\rho}(k)$ tiene distribución asintótica:
+
+$$
+\hat{\rho}(k) \overset{d}{\sim} \mathcal{N}\!\left(0,\; \frac{1}{T}\right), \quad k \neq 0
+$$
+
+donde $T$ es la longitud de la serie.
+
+. . .
+
+Por tanto el **95% de los $\hat{\rho}(k)$** caen dentro de $\pm 1.96/\sqrt{T}$: son los **valores críticos**.
+
+. . .
+
+Las **bandas azules** que aparecen en `plot_acf` son exactamente $\pm 1.96/\sqrt{T}$:
+
+- $\hat{\rho}(k)$ **dentro** → compatible con ruido blanco.
+- $\hat{\rho}(k)$ **fuera** → evidencia de autocorrelación real al nivel $\alpha = 0.05$.
+
+. . .
+
+> **Implicación práctica:** con $T = 1000$, banda $\approx \pm 0.06$. Con $T = 100$, banda $\approx \pm 0.20$. **Las series cortas necesitan correlaciones más grandes** para considerarse significativas.
 
 ---
 
@@ -588,10 +799,39 @@ Decae despacio ⇒ memoria larga, persistencia del flujo base.
 
 ---
 
+## ACF mensual — Genil
+
+```{python}
+#| label: fig-acf-mensual
+#| echo: false
+#| fig-cap: "Caudal mensual del Genil, 1995–2020"
+from statsmodels.graphics.tsaplots import plot_acf
+caudal_m_acf = CAUDAL.resample("MS").mean().loc["1995":"2020"].dropna()
+fig, ax = plt.subplots(figsize=(9, 2.8))
+plot_acf(caudal_m_acf, lags=36, ax=ax, color="#1f6f8b")
+ax.set_xlabel("Lag (meses)"); ax.set_title("")
+plt.tight_layout()
+```
+
+. . .
+
+- **Persistencia mensual** (lag 1 ≈ 0.65) que decae en 3-4 meses.
+- **Pico anual** en lag 12 (≈ 0.20) → confirma la estacionalidad, aunque **modesta** (coherente con el $F_S$ bajo de antes).
+- **Valle negativo** en lags 17-20 (≈ −0.20): meses opuestos del ciclo deshielo-estiaje.
+
+---
+
 ## Autocorrelación parcial (PACF)
 
 La **PACF** mide la correlación entre $y_t$ e $y_{t-k}$ **tras eliminar el
 efecto de los lags intermedios** $y_{t-1}, ..., y_{t-k+1}$.
+
+. . .
+
+**Intuición:**
+
+- ACF pregunta *"¿se parece $y_t$ a $y_{t-k}$?"*.
+- PACF pregunta *"¿añade $y_{t-k}$ información si ya conozco los lags intermedios?"*.
 
 . . .
 
@@ -619,6 +859,32 @@ plt.tight_layout()
 ```
 
 PACF significativa en lags 1-3 ⇒ AR(2) o AR(3) razonable como primer modelo.
+
+---
+
+## Test de Ljung-Box
+
+La ACF mira un lag a la vez. **Ljung-Box** (1978) hace un **test conjunto** sobre los primeros $h$ lags:
+
+$$
+Q_{LB} = T(T+2) \sum_{k=1}^{h} \frac{\hat{\rho}(k)^2}{T - k} \;\sim\; \chi^2_{h}
+$$
+
+$H_0$: $\rho(1) = \ldots = \rho(h) = 0$ (ruido blanco). Rechazar ($p<0.05$) ⇒ queda estructura sin capturar.
+
+. . .
+
+```{python}
+#| label: ljung-box
+#| echo: true
+from statsmodels.stats.diagnostic import acorr_ljungbox
+serie = CAUDAL.loc["2010":"2020"].dropna()
+print(acorr_ljungbox(serie, lags=[10, 20, 30], return_df=True).round(4))
+```
+
+. . .
+
+**Se aplica sobre:** serie original o residuos (STL, ARIMA).
 
 ---
 
