@@ -11,7 +11,7 @@
 
 ### Requisitos
 
-Python ≥ 3.12 con las siguientes librerías instaladas:
+Python ≥ 3.10 (probado hasta 3.13) con las siguientes librerías instaladas:
 
 - **Manipulación y visualización:** `pandas`, `numpy`, `scipy`, `matplotlib`, `seaborn`, `plotly`, `openpyxl`.
 - **Series temporales clásicas:** `statsmodels`, `pastas`, `prophet`.

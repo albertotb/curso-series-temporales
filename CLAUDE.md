@@ -6,7 +6,7 @@ Notas para asistentes de IA trabajando en este repo. Mantener este archivo **bre
 
 - **Slides teoría:** Quarto (`.qmd`) → reveal.js (HTML). Config global en `_quarto.yml`. Tema en `slides/_theme/komorebi.scss`.
 - **Prácticas:** Jupyter notebooks (`.ipynb`) en `notebooks/`.
-- **Gestión de dependencias:** `uv`. Python 3.13. Ver `pyproject.toml`.
+- **Gestión de dependencias:** `uv`. Python 3.10–3.13 (venv local en 3.13). Ver `pyproject.toml`.
 - **Idioma:** español.
 
 ## Convenciones
@@ -32,11 +32,14 @@ quarto preview slides/sesion1/sesion1.qmd # preview en vivo
 ## Flujo de trabajo con notebooks
 
 - Tras editar cualquier `.ipynb` (crear celdas, modificar código), ejecutar **siempre** antes de dar el cambio por terminado:
+
   ```powershell
   uv run ruff format notebooks/
   uv run ruff check notebooks/
   ```
+
   Resolver lo que reporte `check` (o añadir a `per-file-ignores` en `pyproject.toml` si es un patrón intencionado, p. ej. `E402` por `logging.getLogger(...)` antes de los imports).
+
 - No ejecutar las celdas del notebook — el usuario las corre en su Jupyter Lab. Solo formateo + lint estático.
 
 ## Flujo de trabajo con slides (Quarto)

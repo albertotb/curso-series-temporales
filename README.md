@@ -67,7 +67,7 @@ Detalle bloque a bloque, tiempos y notebooks en [`curriculum.md`](curriculum.md)
 
 - **Slides teóricas:** [Quarto](https://quarto.org) (`.qmd`) renderizado a **reveal.js (HTML)**. Tema corporativo Komorebi en `slides/_theme/komorebi.scss`.
 - **Prácticas:** Jupyter notebooks (`.ipynb`).
-- **Gestión de dependencias:** [`uv`](https://docs.astral.sh/uv/). Python ≥3.12.
+- **Gestión de dependencias:** [`uv`](https://docs.astral.sh/uv/). Python ≥3.10, <3.14.
 - **Librerías por sesión** (decisión tras la comparación documentada en `curriculum.md` §A):
   - **Sesión 1 (fundamentos):** `pandas`, `numpy`, `matplotlib`, `statsmodels` (STL, ACF/PACF, tests).
   - **Sesión 2 (modelos estadísticos + Pastas):** `statsmodels` (ARIMA/SARIMA/ETS + diagnóstico de residuos), [`prophet`](https://facebook.github.io/prophet/) (baseline aditivo con estacionalidad/holidays/changepoints), [`pastas`](https://pastas.readthedocs.io/) (modelos de respuesta a impulsos para piezometría).
