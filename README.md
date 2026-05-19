@@ -115,7 +115,9 @@ curso-series-temporales/
 
 ## Setup
 
-```bash
+Con `uv`:
+
+```{bash}
 # 1. Instalar uv (una sola vez) — ver https://docs.astral.sh/uv/
 # macOS/Linux:   curl -LsSf https://astral.sh/uv/install.sh | sh
 # Windows:       powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
@@ -125,8 +127,13 @@ uv sync
 
 # 3. Arrancar Jupyter para prácticas
 uv run jupyter lab
+```
 
-# 4. Renderizar / previsualizar slides (requiere Quarto instalado: https://quarto.org/docs/get-started/)
-quarto render slides/sesion1/sesion1.qmd
-quarto preview slides/sesion1/sesion1.qmd
+Con `conda`:
+
+```{bash}
+conda create -n cst python=3.13
+conda activate cst
+pip install -r requirements.txt
+pip install -e .
 ```
