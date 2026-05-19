@@ -39,11 +39,13 @@ dependencies = [
     "requests>=2.31",
     "tqdm>=4.66",
     "pmdarima>=2.1.1",
+    "sktime>=0.40.1",
 ]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.4"
+    "nbstripout>=0.9.1",
+    "ruff>=0.4",
 ]
 
 [build-system]
