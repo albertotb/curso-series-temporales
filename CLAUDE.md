@@ -40,8 +40,6 @@ quarto preview slides/sesion1/sesion1.qmd # preview en vivo
 
   Resolver lo que reporte `check` (o añadir a `per-file-ignores` en `pyproject.toml` si es un patrón intencionado, p. ej. `E402` por `logging.getLogger(...)` antes de los imports).
 
-- No ejecutar las celdas del notebook — el usuario las corre en su Jupyter Lab. Solo formateo + lint estático.
-
 ## Flujo de trabajo con slides (Quarto)
 
 - **NUNCA** ejecutar `quarto render` tras editar un `.qmd` — es lento. Para ver los cambios se usa siempre `quarto preview` (hot-reload).
