@@ -559,40 +559,37 @@ Hasta ahora hemos predicho **un solo paso** ($y_{t+1}$). Para predecir $(y_{t+1}
 
 ---
 
-## MIMO vs seq2seq — qué cambia en Keras
+## Sparse MIMO — horizontes no consecutivos
 
-**MIMO** — one-shot, $h$ outputs en paralelo:
+¿Y si sólo quieres $y_{t+7}$ y $y_{t+30}$ (sin los días intermedios)? La respuesta sigue siendo **MIMO**, con `Dense(2)` y un `Y` de shape `(N, 2)`:
 
 ```python
-Sequential([
-    Input(shape=(T, F)),
-    LSTM(units, return_sequences=False),   # → h_T
-    Dropout(0.2),
-    Dense(h),                              # h_T → vector de h
+HORIZONTES = [7, 30]
+
+def crear_ventanas_horizontes(df, features, target, ventana, horizontes):
+    offsets = np.asarray(horizontes) - 1
+    max_h = max(horizontes)
+    X, Y, idx = [], [], []
+    for i in range(len(df) - ventana - max_h + 1):
+        X.append(df[features].values[i : i + ventana])
+        Y.append(df[target].values[i + ventana + offsets])
+        idx.append(df.index[i + ventana])
+    return np.asarray(X), np.asarray(Y), pd.DatetimeIndex(idx)
+
+model = Sequential([
+    Input(shape=(VENTANA, F)),
+    LSTM(32), Dropout(0.2),
+    Dense(len(HORIZONTES)),                  # Dense(2)
 ])
 ```
 
-Outputs $(\hat y_{t+1}, \ldots, \hat y_{t+h})$ **condicionalmente independientes** dado $h_T$.
+. . .
+
+**¿Por qué no Direct (2 modelos independientes)?** El encoder $h_T$ codifica el **estado de la cuenca** — informativo para ambos horizontes. Direct entrenaría dos LSTMs separadas que tirarían esa representación compartida.
 
 . . .
 
-**Seq2Seq** — encoder + decoder que unrollea $h$ pasos:
-
-```python
-Sequential([
-    Input(shape=(T, F)),
-    LSTM(units, return_sequences=False),   # encoder → h_T
-    RepeatVector(h),                       # h_T replicado h veces
-    LSTM(units, return_sequences=True),    # decoder → h hidden states
-    TimeDistributed(Dense(1)),             # 1 output por paso
-])
-```
-
-Outputs **acoplados** vía el estado oculto del decoder ($\hat y_{t+2}$ "ve" implícitamente lo que llevó a $\hat y_{t+1}$).
-
-. . .
-
-> Más capacidad ≠ mejor. Con horizontes cortos ($h \leq 7$) MIMO suele ganar por overfitting del seq2seq.
+> **Con skforecast:** se entrena denso (`steps=30`) y luego `forecaster.predict(steps=[7, 30])` filtra a la inferencia. Para sparse MIMO _en entrenamiento_ hay que construir el modelo a mano.
 
 ---
 
