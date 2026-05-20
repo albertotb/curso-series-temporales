@@ -538,6 +538,95 @@ std   = np.std(predicciones, axis=0)
 
 ---
 
+## Predicción multi-horizonte — 3 estrategias
+
+Hasta ahora hemos predicho **un solo paso** ($y_{t+1}$). Para predecir $(y_{t+1}, \ldots, y_{t+h})$ hay tres estrategias clásicas:
+
+| | **Direct** | **MIMO** | **Seq2Seq** |
+|---|---|---|---|
+| Modelos | $h$ independientes | 1 | 1 |
+| Capa final | $h$ × `Dense(1)` | `Dense(h)` | decoder + `TimeDistributed(Dense(1))` |
+| Coupling entre outputs | ninguno | sólo vía $h_T$ | vía estado del decoder |
+| Coste de entrenamiento | $h$× | 1× | 1× |
+
+. . .
+
+**Recursive** (multi-step iterando el modelo de 1 paso) **no se usa con RNN** — el error compuesto a 7+ días destruye la calidad. Reservado para clásicos (ARIMA, XGBoost vía skforecast).
+
+. . .
+
+> Default en hidrología: **MIMO**. Salta a seq2seq sólo si MIMO produce trayectorias demasiado "planas".
+
+---
+
+## MIMO vs seq2seq — qué cambia en Keras
+
+**MIMO** — one-shot, $h$ outputs en paralelo:
+
+```python
+Sequential([
+    Input(shape=(T, F)),
+    LSTM(units, return_sequences=False),   # → h_T
+    Dropout(0.2),
+    Dense(h),                              # h_T → vector de h
+])
+```
+
+Outputs $(\hat y_{t+1}, \ldots, \hat y_{t+h})$ **condicionalmente independientes** dado $h_T$.
+
+. . .
+
+**Seq2Seq** — encoder + decoder que unrollea $h$ pasos:
+
+```python
+Sequential([
+    Input(shape=(T, F)),
+    LSTM(units, return_sequences=False),   # encoder → h_T
+    RepeatVector(h),                       # h_T replicado h veces
+    LSTM(units, return_sequences=True),    # decoder → h hidden states
+    TimeDistributed(Dense(1)),             # 1 output por paso
+])
+```
+
+Outputs **acoplados** vía el estado oculto del decoder ($\hat y_{t+2}$ "ve" implícitamente lo que llevó a $\hat y_{t+1}$).
+
+. . .
+
+> Más capacidad ≠ mejor. Con horizontes cortos ($h \leq 7$) MIMO suele ganar por overfitting del seq2seq.
+
+---
+
+## skforecast — `ForecasterRnn` para Keras
+
+Desde v0.12, skforecast envuelve modelos Keras con la misma API que en sesión 3:
+
+```python
+from skforecast.deep_learning import ForecasterRnn, create_and_compile_model
+from skforecast.model_selection import backtesting_forecaster_multiseries
+
+model = create_and_compile_model(
+    series=df, lags=30, steps=7, levels=["caudal"],
+    recurrent_layer="LSTM", recurrent_units=64,
+)
+forecaster = ForecasterRnn(regressor=model, levels="caudal", lags=30, steps=7)
+forecaster.fit(series=df_train)
+
+metric, preds = backtesting_forecaster_multiseries(
+    forecaster=forecaster, series=df, steps=7,
+    initial_train_size=..., refit=False,
+)
+```
+
+. . .
+
+**Aporta:** backtesting walk-forward, escalado automático, soporte multi-serie. **Estrategia interna:** siempre MIMO (one-shot) — no existe `ForecasterRnnRecursive`.
+
+. . .
+
+> Útil cuando ya tienes pipeline skforecast y quieres añadir un modelo neural sin reescribirlo.
+
+---
+
 ## NeuralHydrology — el referente del DL hidrológico
 
 [`neuralhydrology`](https://neuralhydrology.readthedocs.io/) (Kratzert et al., JKU Linz):
