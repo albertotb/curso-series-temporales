@@ -436,6 +436,110 @@ $$
 
 ---
 
+## LSTM en acción — recordar un evento de lluvia
+
+Dataset de juguete: la lluvia provoca una respuesta en el caudal **5 pasos más tarde**. Entrenamos una LSTM diminuta (4 unidades) y miramos las gates en acción.
+
+```{python}
+#| label: lstm-gates-toy
+#| echo: false
+#| cache: true
+#| fig-cap: "Al recibir el pulso de lluvia (línea azul vertical), input gate dispara, una unidad de forget baja (resetea su memoria para incorporar el evento) y output gate ajusta cuánto se expone."
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+import warnings
+warnings.filterwarnings("ignore")
+import keras
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, Input
+
+rng = np.random.default_rng(42)
+keras.utils.set_random_seed(0)
+
+# Synthetic data: rain → flow delayed 5 steps
+N = 1200
+p = np.zeros(N)
+p[rng.choice(N, size=int(N * 0.10), replace=False)] = 5.0
+y_t = np.ones(N) + rng.normal(0, 0.05, N)
+y_t[5:] += 0.5 * p[:-5]
+
+VENTANA = 15
+X = np.asarray([p[i : i + VENTANA] for i in range(N - VENTANA)])[..., None]
+Y = np.asarray([y_t[i + VENTANA] for i in range(N - VENTANA)])
+split = int(0.7 * len(X))
+
+# Train tiny LSTM
+model = Sequential(
+    [Input(shape=(VENTANA, 1)), LSTM(4, return_sequences=False), Dense(1)]
+)
+model.compile(optimizer=keras.optimizers.Adam(5e-3), loss="mse")
+model.fit(X[:split], Y[:split], epochs=30, batch_size=32, verbose=0)
+
+# Manual forward pass → gates
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+W, U, b = model.layers[0].get_weights()
+W_i, W_f, W_c, W_o = np.split(W, 4, axis=1)
+U_i, U_f, U_c, U_o = np.split(U, 4, axis=1)
+b_i, b_f, b_c, b_o = np.split(b, 4)
+
+
+def forward_gates(x_seq, units=4):
+    T = len(x_seq)
+    h, c = np.zeros(units), np.zeros(units)
+    g = {k: np.zeros((T, units)) for k in ("i", "f", "o")}
+    for t in range(T):
+        x = x_seq[t]
+        i = sigmoid(x @ W_i + h @ U_i + b_i)
+        f = sigmoid(x @ W_f + h @ U_f + b_f)
+        c = f * c + i * np.tanh(x @ W_c + h @ U_c + b_c)
+        o = sigmoid(x @ W_o + h @ U_o + b_o)
+        h = o * np.tanh(c)
+        g["i"][t], g["f"][t], g["o"][t] = i, f, o
+    return g
+
+# Find a clean window with a single rain pulse in the middle
+X_te = X[split:]
+idx = next(
+    i for i in range(len(X_te))
+    if (np.where(X_te[i].flatten() > 0)[0].size == 1
+        and 4 <= np.where(X_te[i].flatten() > 0)[0][0] <= 9)
+)
+sample = X_te[idx]
+pos = int(np.where(sample.flatten() > 0)[0][0])
+gates = forward_gates(sample)
+
+fig, axes = plt.subplots(
+    4, 1, figsize=(11, 4.8), sharex=True,
+    gridspec_kw={"hspace": 0.45, "height_ratios": [1, 1, 1, 1]},
+)
+t_axis = np.arange(VENTANA)
+axes[0].bar(t_axis, sample.flatten(), color="#1f6f8b", alpha=0.7, width=0.7)
+axes[0].set_ylabel(r"$p_t$")
+axes[0].set_title("Lluvia (input)", fontsize=10)
+
+for ax, key, title, color in [
+    (axes[1], "i", r"Input gate $i_t$ — qué memorizar", "#7c3aed"),
+    (axes[2], "f", r"Forget gate $f_t$ — qué retener", "#c2410c"),
+    (axes[3], "o", r"Output gate $o_t$ — qué exponer", "#0e7c5d"),
+]:
+    for u in range(4):
+        ax.plot(t_axis, gates[key][:, u], color=color, alpha=0.55, lw=1.4)
+    ax.axvline(pos, color="#1f6f8b", lw=0.8, ls=":", alpha=0.6)
+    ax.set_title(title, fontsize=10)
+    ax.set_ylim(-0.05, 1.05)
+
+axes[-1].set_xlabel(r"paso $t$ dentro de la ventana")
+plt.tight_layout()
+```
+
+. . .
+
+> **Las gates son tres regresiones logísticas** que aprenden cuándo abrir/cerrar las válvulas del estado interno. Notebook `00_lstm_intuicion_lluvia.ipynb` reproduce esto en 30 segundos.
+
+---
+
 ## GRU — la versión simplificada
 
 Cho et al. (2014). Une input + forget en una sola **update gate**; combina $c$ y $h$ en uno. **2 gates en vez de 3.**
@@ -925,7 +1029,8 @@ static_attributes: [area, slope_mean, ...]
 
 **Práctica (2h):**
 
-1. `01_lstm_caudal_keras.ipynb` (1h) — preparar ventanas, LSTM, callbacks, predicción.
+0. `00_lstm_intuicion_lluvia.ipynb` (15-20 min) — *warm-up*: LSTM diminuta sobre dataset de juguete, gates visualizadas a mano.
+1. `01_lstm_caudal_keras.ipynb` (1h) — preparar ventanas, LSTM, callbacks, predicción sobre caudal real.
 2. `02_comparacion_y_neuralhydrology.ipynb` (30 min) — comparativa final + demo NeuralHydrology.
 3. `03_interpretabilidad_y_errores.ipynb` (15 min) — SHAP recap + análisis por régimen.
 
