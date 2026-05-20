@@ -83,6 +83,69 @@ Las series temporales son donde el DL **lleva más años conviviendo** con méto
 
 ---
 
+## El bloque básico — la neurona
+
+Una neurona = **regresión lineal con un "aplastamiento" no lineal al final**:
+
+$$
+y = \sigma(w_1 x_1 + w_2 x_2 + \ldots + w_n x_n + b) = \sigma(\mathbf{w}^\top \mathbf{x} + b)
+$$
+
+- $\mathbf{w}, b$ son **parámetros aprendibles** (igual que los $\beta$ de la regresión).
+- $\sigma$ es la **función de activación** — la única razón por la que apilar capas sirve para algo.
+
+```{python}
+#| label: activaciones
+#| echo: false
+#| fig-cap: "Las tres activaciones más usadas. ReLU es el default moderno."
+x = np.linspace(-3, 3, 200)
+fig, ax = plt.subplots(figsize=(8, 2.4))
+ax.plot(x, np.maximum(0, x), label="ReLU", lw=2)
+ax.plot(x, np.tanh(x), label="tanh", lw=2)
+ax.plot(x, 1 / (1 + np.exp(-x)), label="sigmoid", lw=2)
+ax.axhline(0, color="gray", lw=0.5)
+ax.axvline(0, color="gray", lw=0.5)
+ax.legend(loc="lower right")
+ax.set_xlabel("entrada")
+ax.set_ylabel(r"$\sigma$(entrada)")
+plt.tight_layout()
+```
+
+. . .
+
+> **Sin activación**, apilar capas equivale a una sola capa lineal — toda la red colapsa a una regresión lineal.
+
+---
+
+## De neurona a red — capas y entrenamiento
+
+`Dense(64)` = **64 neuronas en paralelo** que comparten la entrada $\mathbf{x}$:
+
+$$
+\mathbf{h} = \sigma(W \mathbf{x} + \mathbf{b}), \qquad W \in \mathbb{R}^{64 \times n}
+$$
+
+Apilar varias capas `Dense` = una **red profunda**. Cada capa transforma la representación de la anterior.
+
+. . .
+
+**Entrenar = ajustar $W, \mathbf{b}$ para que $\hat y \approx y$ observado:**
+
+1. Pasada **forward**: $\hat y = f(\mathbf{x}; W, \mathbf{b})$.
+2. Calcular **pérdida**: $\mathcal{L} = \text{MSE}(y, \hat y)$.
+3. **Backprop**: gradiente $\nabla_W \mathcal{L}$ por la regla de la cadena.
+4. **Update**: $W \leftarrow W - \eta \, \nabla_W \mathcal{L}$ (descenso por gradiente).
+
+. . .
+
+Se itera sobre **mini-batches** durante muchas **epochs** hasta que la pérdida deja de bajar.
+
+. . .
+
+> **Adam** = descenso por gradiente con momentum + tasa adaptativa. Es el optimizer por defecto y casi nunca te equivocas eligiéndolo.
+
+---
+
 ## El camino más corto al DL — MLP
 
 Un **perceptrón multicapa** sobre la misma matriz $X$ (lags + rolling + exógenas) que usaste con XGBoost.
@@ -170,9 +233,45 @@ $\hat y$
 
 ---
 
-## RNN — el problema
+## RNN — el problema (vanishing gradient)
 
-**Gradientes que explotan o se desvanecen** al retropropagar por muchos pasos. La RNN básica olvida lo que pasó hace 20 pasos.
+Para entrenar, el gradiente debe retropropagarse desde $\hat y$ hasta $x_1$ a través de la cadena:
+
+$$
+\frac{\partial \mathcal{L}}{\partial h_1} = \frac{\partial \mathcal{L}}{\partial h_T} \cdot \underbrace{\frac{\partial h_T}{\partial h_{T-1}} \cdot \frac{\partial h_{T-1}}{\partial h_{T-2}} \cdots \frac{\partial h_2}{\partial h_1}}_{T-1 \text{ factores}}
+$$
+
+Cada factor incluye una derivada de $\tanh$ que está en $[0, 1]$ y suele rondar **0.3–0.5**.
+
+. . .
+
+**Tras 30 pasos**: gradiente $\sim 0.4^{30} \approx 10^{-12}$ → la RNN básica **no aprende** dependencias a más de ~20 pasos.
+
+. . .
+
+Si los pesos $W_h$ son grandes, el producto **explota** en vez de desvanecerse — de ahí el truco habitual del *gradient clipping*.
+
+. . .
+
+```{python}
+#| label: vanishing-gradient
+#| echo: false
+#| fig-cap: "Magnitud del gradiente que llega al paso $t-k$ tras $k$ multiplicaciones (eje log)."
+k = np.arange(0, 60)
+fig, ax = plt.subplots(figsize=(8, 2.0))
+for factor, label in [(0.5, r"$|J| = 0.5$"), (0.3, r"$|J| = 0.3$"), (0.1, r"$|J| = 0.1$")]:
+    ax.semilogy(k, factor**k, lw=2, label=label)
+ax.axhline(1e-7, color="red", lw=0.8, ls="--", alpha=0.6)
+ax.text(2, 1.5e-7, "umbral float32", color="red", fontsize=8)
+ax.set_xlabel("pasos hacia atrás")
+ax.set_ylabel("magnitud gradiente")
+ax.legend()
+plt.tight_layout()
+```
+
+. . .
+
+> La LSTM soluciona esto con una "autopista" para el gradiente: la celda $c_t$ tiene un flujo **aditivo** que evita el aplastamiento multiplicativo.
 
 ---
 
