@@ -386,26 +386,9 @@ plt.tight_layout()
 
 ---
 
-## LSTM — ecuaciones
-
-$$
-\begin{aligned}
-f_t &= \sigma(W_f [h_{t-1}, x_t] + b_f) \\
-i_t &= \sigma(W_i [h_{t-1}, x_t] + b_i) \\
-\tilde{c}_t &= \tanh(W_c [h_{t-1}, x_t] + b_c) \\
-c_t &= f_t \odot c_{t-1} + i_t \odot \tilde{c}_t \\
-o_t &= \sigma(W_o [h_{t-1}, x_t] + b_o) \\
-h_t &= o_t \odot \tanh(c_t)
-\end{aligned}
-$$
-
-**Memoria larga**: $c_t$ pasa información sin pasar por funciones que aplasten gradientes.
-
----
-
 ## LSTM en acción — recordar un evento de lluvia
 
-Dataset de juguete: la lluvia provoca una respuesta en el caudal **5 pasos más tarde**. Entrenamos una LSTM pequeña (4 unidades) y miramos las gates en acción.
+Dataset de juguete: la lluvia provoca una respuesta en el caudal. Entrenamos una LSTM pequeña (4 unidades) y miramos las compuertas en acción.
 
 ```{python}
 #| label: lstm-gates-toy
