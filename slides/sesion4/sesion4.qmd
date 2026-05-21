@@ -83,6 +83,116 @@ Las series temporales son donde el DL **lleva más años conviviendo** con méto
 
 ---
 
+## El bloque básico — la neurona
+
+Una neurona = **regresión lineal con un "aplastamiento" no lineal al final**:
+
+$$
+y = \sigma(w_1 x_1 + w_2 x_2 + \ldots + w_n x_n + b) = \sigma(\mathbf{w}^\top \mathbf{x} + b)
+$$
+
+- $\mathbf{w}, b$ son **parámetros aprendibles** (igual que los $\beta$ de la regresión).
+- $\sigma$ es la **función de activación** — la única razón por la que apilar capas sirve para algo.
+
+```{python}
+#| label: neurona-y-activaciones
+#| echo: false
+#| fig-cap: "Izda: una neurona. Dcha: las tres activaciones más usadas (ReLU es el default moderno)."
+import matplotlib.patches as mpatches
+
+fig, (ax1, ax2) = plt.subplots(
+    1, 2, figsize=(11, 2.8), gridspec_kw={"width_ratios": [1.3, 1]}
+)
+
+ax1.set_xlim(0, 10)
+ax1.set_ylim(0, 5)
+ax1.axis("off")
+inputs = [("$x_1$", 0.8, 4), ("$x_2$", 0.8, 3), (r"$\vdots$", 0.8, 2), ("$x_n$", 0.8, 1)]
+for label, x_, y_ in inputs:
+    ax1.scatter(x_, y_, s=550, c="white", edgecolors="#374151", lw=1.5, zorder=2)
+    ax1.text(x_, y_, label, ha="center", va="center", fontsize=11)
+
+sum_x, sum_y = 5, 2.5
+ax1.scatter(sum_x, sum_y, s=950, c="#fef3c7", edgecolors="#d97706", lw=1.5, zorder=2)
+ax1.text(sum_x, sum_y, r"$\Sigma$", ha="center", va="center", fontsize=15, fontweight="bold")
+ax1.text(sum_x, sum_y - 0.85, r"$+\, b$", ha="center", fontsize=10)
+
+act_x, act_y = 7.5, 2.5
+ax1.scatter(act_x, act_y, s=950, c="#dcfce7", edgecolors="#0e7c5d", lw=1.5, zorder=2)
+ax1.text(act_x, act_y, r"$\sigma$", ha="center", va="center", fontsize=14, fontweight="bold")
+
+ax1.text(9.5, 2.5, r"$y$", ha="center", va="center", fontsize=13, fontweight="bold")
+
+for i, (label, x_, y_) in enumerate(inputs):
+    if "vdots" in label:
+        continue
+    ax1.annotate(
+        "", xy=(sum_x - 0.32, sum_y), xytext=(x_ + 0.32, y_),
+        arrowprops=dict(arrowstyle="->", lw=1.2, color="#9ca3af"),
+    )
+    w_label = [r"$w_1$", r"$w_2$", None, r"$w_n$"][i]
+    if w_label:
+        offset_y = 0.22 if i < 2 else -0.22
+        ax1.text((x_ + sum_x) / 2, (y_ + sum_y) / 2 + offset_y, w_label,
+                 fontsize=10, color="#374151", ha="center")
+
+ax1.annotate(
+    "", xy=(act_x - 0.32, act_y), xytext=(sum_x + 0.32, sum_y),
+    arrowprops=dict(arrowstyle="->", lw=1.5, color="#374151"),
+)
+ax1.annotate(
+    "", xy=(9.5 - 0.25, 2.5), xytext=(act_x + 0.32, act_y),
+    arrowprops=dict(arrowstyle="->", lw=1.5, color="#374151"),
+)
+
+x = np.linspace(-3, 3, 200)
+ax2.plot(x, np.maximum(0, x), label="ReLU", lw=2)
+ax2.plot(x, np.tanh(x), label="tanh", lw=2)
+ax2.plot(x, 1 / (1 + np.exp(-x)), label="sigmoid", lw=2)
+ax2.axhline(0, color="gray", lw=0.5)
+ax2.axvline(0, color="gray", lw=0.5)
+ax2.legend(loc="lower right", fontsize=9)
+ax2.set_xlabel("entrada")
+ax2.set_ylabel(r"$\sigma$(entrada)")
+
+plt.tight_layout()
+```
+
+. . .
+
+> **Sin activación**, apilar capas equivale a una sola capa lineal — toda la red colapsa a una regresión lineal.
+
+---
+
+## De neurona a red — capas y entrenamiento
+
+`Dense(64)` = **64 neuronas en paralelo** que comparten la entrada $\mathbf{x}$:
+
+$$
+\mathbf{h} = \sigma(W \mathbf{x} + \mathbf{b}), \qquad W \in \mathbb{R}^{64 \times n}
+$$
+
+Apilar varias capas `Dense` = una **red profunda**. Cada capa transforma la representación de la anterior.
+
+. . .
+
+**Entrenar = ajustar $W, \mathbf{b}$ para que $\hat y \approx y$ observado:**
+
+1. Pasada **forward**: $\hat y = f(\mathbf{x}; W, \mathbf{b})$.
+2. Calcular **pérdida**: $\mathcal{L} = \text{MSE}(y, \hat y)$.
+3. **Backprop**: gradiente $\nabla_W \mathcal{L}$ por la regla de la cadena.
+4. **Update**: $W \leftarrow W - \eta \, \nabla_W \mathcal{L}$ (descenso por gradiente).
+
+. . .
+
+Se itera sobre **mini-batches** durante muchas **epochs** hasta que la pérdida deja de bajar.
+
+. . .
+
+> **Adam** = descenso por gradiente con momentum + tasa adaptativa. Es el optimizer por defecto y casi nunca te equivocas eligiéndolo.
+
+---
+
 ## El camino más corto al DL — MLP
 
 Un **perceptrón multicapa** sobre la misma matriz $X$ (lags + rolling + exógenas) que usaste con XGBoost.
@@ -170,9 +280,45 @@ $\hat y$
 
 ---
 
-## RNN — el problema
+## RNN — el problema (vanishing gradient)
 
-**Gradientes que explotan o se desvanecen** al retropropagar por muchos pasos. La RNN básica olvida lo que pasó hace 20 pasos.
+Para entrenar, el gradiente debe retropropagarse desde $\hat y$ hasta $x_1$ a través de la cadena:
+
+$$
+\frac{\partial \mathcal{L}}{\partial h_1} = \frac{\partial \mathcal{L}}{\partial h_T} \cdot \underbrace{\frac{\partial h_T}{\partial h_{T-1}} \cdot \frac{\partial h_{T-1}}{\partial h_{T-2}} \cdots \frac{\partial h_2}{\partial h_1}}_{T-1 \text{ factores}}
+$$
+
+Cada factor incluye una derivada de $\tanh$ que está en $[0, 1]$ y suele rondar **0.3–0.5**.
+
+. . .
+
+**Tras 30 pasos**: gradiente $\sim 0.4^{30} \approx 10^{-12}$ → la RNN básica **no aprende** dependencias a más de ~20 pasos.
+
+. . .
+
+Si los pesos $W_h$ son grandes, el producto **explota** en vez de desvanecerse — de ahí el truco habitual del *gradient clipping*.
+
+. . .
+
+```{python}
+#| label: vanishing-gradient
+#| echo: false
+#| fig-cap: "Magnitud del gradiente que llega al paso $t-k$ tras $k$ multiplicaciones (eje log)."
+k = np.arange(0, 60)
+fig, ax = plt.subplots(figsize=(8, 2.0))
+for factor, label in [(0.5, r"$|J| = 0.5$"), (0.3, r"$|J| = 0.3$"), (0.1, r"$|J| = 0.1$")]:
+    ax.semilogy(k, factor**k, lw=2, label=label)
+ax.axhline(1e-7, color="red", lw=0.8, ls="--", alpha=0.6)
+ax.text(2, 1.5e-7, "umbral float32", color="red", fontsize=8)
+ax.set_xlabel("pasos hacia atrás")
+ax.set_ylabel("magnitud gradiente")
+ax.legend()
+plt.tight_layout()
+```
+
+. . .
+
+> La LSTM soluciona esto con una "autopista" para el gradiente: la celda $c_t$ tiene un flujo **aditivo** que evita el aplastamiento multiplicativo.
 
 ---
 
@@ -183,6 +329,93 @@ Hochreiter & Schmidhuber (1997). Tres puertas controlan qué información fluye:
 - **Forget gate** $f_t$: ¿qué del pasado olvido?
 - **Input gate** $i_t$: ¿qué de lo nuevo retengo?
 - **Output gate** $o_t$: ¿qué del estado expongo?
+
+```{python}
+#| label: lstm-cell
+#| echo: false
+#| fig-cap: "Celda LSTM. La línea verde superior ($c_{t-1} \\to c_t$) es la 'autopista' por la que fluye el gradiente sin aplastarse."
+import matplotlib.patches as mpatches
+
+fig, ax = plt.subplots(figsize=(11, 3.6))
+ax.set_xlim(-0.5, 11.5)
+ax.set_ylim(-0.5, 5.0)
+ax.axis("off")
+
+ax.add_patch(mpatches.FancyBboxPatch(
+    (1.0, 0.2), 9.0, 4.5, boxstyle="round,pad=0.05",
+    facecolor="#fafafa", edgecolor="#374151", lw=1.5,
+))
+ax.text(5.5, 4.45, "Celda LSTM", ha="center", fontsize=12, fontweight="bold", color="#374151")
+
+# Cell state highway
+ax.plot([0.0, 11.0], [3.6, 3.6], color="#0e7c5d", lw=2.8)
+ax.annotate("", xy=(11.05, 3.6), xytext=(10.5, 3.6),
+            arrowprops=dict(arrowstyle="->", color="#0e7c5d", lw=2.5))
+ax.text(0.05, 3.85, r"$c_{t-1}$", fontsize=12, color="#0e7c5d", fontweight="bold")
+ax.text(10.3, 3.85, r"$c_t$", fontsize=12, color="#0e7c5d", fontweight="bold")
+ax.text(5.5, 4.05, "memoria — flujo aditivo, sin aplastar gradiente",
+        ha="center", fontsize=8.5, color="#0e7c5d", fontstyle="italic")
+
+# Gates
+gates = [
+    ("forget", r"$\sigma$", 2.7, "#c2410c"),
+    ("input", r"$\sigma$, tanh", 5.5, "#7c3aed"),
+    ("output", r"$\sigma$", 8.3, "#0e7c5d"),
+]
+for name, sub, gx, color in gates:
+    ax.add_patch(mpatches.FancyBboxPatch(
+        (gx - 0.80, 1.5), 1.6, 0.95, boxstyle="round,pad=0.03",
+        facecolor=color, alpha=0.15, edgecolor=color, lw=1.5,
+    ))
+    ax.text(gx, 2.15, name, ha="center", fontsize=10.5, color=color, fontweight="bold")
+    ax.text(gx, 1.75, sub, ha="center", fontsize=9.5, color=color)
+
+# Forget ⊙
+ax.scatter([2.7], [3.6], s=450, color="white", edgecolor="#c2410c", lw=1.8, zorder=3)
+ax.text(2.7, 3.6, r"$\odot$", ha="center", va="center", fontsize=14,
+        color="#c2410c", fontweight="bold")
+ax.annotate("", xy=(2.7, 3.35), xytext=(2.7, 2.5),
+            arrowprops=dict(arrowstyle="->", color="#c2410c", lw=1.4))
+
+# Input ⊕
+ax.scatter([5.5], [3.6], s=450, color="white", edgecolor="#7c3aed", lw=1.8, zorder=3)
+ax.text(5.5, 3.6, r"$\oplus$", ha="center", va="center", fontsize=14,
+        color="#7c3aed", fontweight="bold")
+ax.annotate("", xy=(5.5, 3.35), xytext=(5.5, 2.5),
+            arrowprops=dict(arrowstyle="->", color="#7c3aed", lw=1.4))
+
+# Output ⊙ combining tanh(c_t) with o_t
+ocx, ocy = 8.3, 0.8
+ax.scatter([ocx], [ocy], s=450, color="white", edgecolor="#0e7c5d", lw=1.8, zorder=3)
+ax.text(ocx, ocy, r"$\odot$", ha="center", va="center", fontsize=14,
+        color="#0e7c5d", fontweight="bold")
+ax.annotate("", xy=(ocx, 1.05), xytext=(ocx, 1.45),
+            arrowprops=dict(arrowstyle="->", color="#0e7c5d", lw=1.4))
+ax.annotate("", xy=(ocx + 0.25, 0.95), xytext=(9.0, 3.35),
+            arrowprops=dict(arrowstyle="->", color="#0e7c5d", lw=1.2,
+                            connectionstyle="arc3,rad=0.4"))
+ax.text(9.55, 2.05, "tanh", fontsize=9, color="#0e7c5d", fontstyle="italic")
+
+# Input bus
+ax.plot([0.5, 8.3], [0.8, 0.8], color="#374151", lw=1.3)
+ax.text(0.05, 0.95, r"$h_{t-1}$", fontsize=11, fontweight="bold")
+ax.annotate("", xy=(0.55, 0.8), xytext=(0.0, 0.8),
+            arrowprops=dict(arrowstyle="->", color="#374151", lw=1.5))
+ax.plot([1.5, 1.5], [-0.3, 0.8], color="#374151", lw=1.3)
+ax.annotate("", xy=(1.5, 0.8), xytext=(1.5, 0.3),
+            arrowprops=dict(arrowstyle="->", color="#374151", lw=1.5))
+ax.text(1.65, -0.35, r"$x_t$", fontsize=11, fontweight="bold")
+for gx in [2.7, 5.5, 8.3]:
+    ax.plot([gx, gx], [0.8, 1.5], color="#9ca3af", lw=1.0)
+
+# h_t output
+ax.plot([ocx, 11.0], [0.8, 0.8], color="#374151", lw=1.5)
+ax.annotate("", xy=(11.05, 0.8), xytext=(10.6, 0.8),
+            arrowprops=dict(arrowstyle="->", color="#374151", lw=1.5))
+ax.text(10.3, 0.95, r"$h_t$", fontsize=11, fontweight="bold")
+
+plt.tight_layout()
+```
 
 ---
 
@@ -200,6 +433,110 @@ h_t &= o_t \odot \tanh(c_t)
 $$
 
 **Memoria larga**: $c_t$ pasa información sin pasar por funciones que aplasten gradientes.
+
+---
+
+## LSTM en acción — recordar un evento de lluvia
+
+Dataset de juguete: la lluvia provoca una respuesta en el caudal **5 pasos más tarde**. Entrenamos una LSTM diminuta (4 unidades) y miramos las gates en acción.
+
+```{python}
+#| label: lstm-gates-toy
+#| echo: false
+#| cache: true
+#| fig-cap: "Al recibir el pulso de lluvia (línea azul vertical), input gate dispara, una unidad de forget baja (resetea su memoria para incorporar el evento) y output gate ajusta cuánto se expone."
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+import warnings
+warnings.filterwarnings("ignore")
+import keras
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, Input
+
+rng = np.random.default_rng(42)
+keras.utils.set_random_seed(0)
+
+# Synthetic data: rain → flow delayed 5 steps
+N = 1200
+p = np.zeros(N)
+p[rng.choice(N, size=int(N * 0.10), replace=False)] = 5.0
+y_t = np.ones(N) + rng.normal(0, 0.05, N)
+y_t[5:] += 0.5 * p[:-5]
+
+VENTANA = 15
+X = np.asarray([p[i : i + VENTANA] for i in range(N - VENTANA)])[..., None]
+Y = np.asarray([y_t[i + VENTANA] for i in range(N - VENTANA)])
+split = int(0.7 * len(X))
+
+# Train tiny LSTM
+model = Sequential(
+    [Input(shape=(VENTANA, 1)), LSTM(4, return_sequences=False), Dense(1)]
+)
+model.compile(optimizer=keras.optimizers.Adam(5e-3), loss="mse")
+model.fit(X[:split], Y[:split], epochs=30, batch_size=32, verbose=0)
+
+# Manual forward pass → gates
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+W, U, b = model.layers[0].get_weights()
+W_i, W_f, W_c, W_o = np.split(W, 4, axis=1)
+U_i, U_f, U_c, U_o = np.split(U, 4, axis=1)
+b_i, b_f, b_c, b_o = np.split(b, 4)
+
+
+def forward_gates(x_seq, units=4):
+    T = len(x_seq)
+    h, c = np.zeros(units), np.zeros(units)
+    g = {k: np.zeros((T, units)) for k in ("i", "f", "o")}
+    for t in range(T):
+        x = x_seq[t]
+        i = sigmoid(x @ W_i + h @ U_i + b_i)
+        f = sigmoid(x @ W_f + h @ U_f + b_f)
+        c = f * c + i * np.tanh(x @ W_c + h @ U_c + b_c)
+        o = sigmoid(x @ W_o + h @ U_o + b_o)
+        h = o * np.tanh(c)
+        g["i"][t], g["f"][t], g["o"][t] = i, f, o
+    return g
+
+# Find a clean window with a single rain pulse in the middle
+X_te = X[split:]
+idx = next(
+    i for i in range(len(X_te))
+    if (np.where(X_te[i].flatten() > 0)[0].size == 1
+        and 4 <= np.where(X_te[i].flatten() > 0)[0][0] <= 9)
+)
+sample = X_te[idx]
+pos = int(np.where(sample.flatten() > 0)[0][0])
+gates = forward_gates(sample)
+
+fig, axes = plt.subplots(
+    4, 1, figsize=(11, 4.8), sharex=True,
+    gridspec_kw={"hspace": 0.45, "height_ratios": [1, 1, 1, 1]},
+)
+t_axis = np.arange(VENTANA)
+axes[0].bar(t_axis, sample.flatten(), color="#1f6f8b", alpha=0.7, width=0.7)
+axes[0].set_ylabel(r"$p_t$")
+axes[0].set_title("Lluvia (input)", fontsize=10)
+
+for ax, key, title, color in [
+    (axes[1], "i", r"Input gate $i_t$ — qué memorizar", "#7c3aed"),
+    (axes[2], "f", r"Forget gate $f_t$ — qué retener", "#c2410c"),
+    (axes[3], "o", r"Output gate $o_t$ — qué exponer", "#0e7c5d"),
+]:
+    for u in range(4):
+        ax.plot(t_axis, gates[key][:, u], color=color, alpha=0.55, lw=1.4)
+    ax.axvline(pos, color="#1f6f8b", lw=0.8, ls=":", alpha=0.6)
+    ax.set_title(title, fontsize=10)
+    ax.set_ylim(-0.05, 1.05)
+
+axes[-1].set_xlabel(r"paso $t$ dentro de la ventana")
+plt.tight_layout()
+```
+
+. . .
+
+> **Las gates son tres regresiones logísticas** que aprenden cuándo abrir/cerrar las válvulas del estado interno. Notebook `00_lstm_intuicion_lluvia.ipynb` reproduce esto en 30 segundos.
 
 ---
 
@@ -310,11 +647,126 @@ Vaswani et al. (2017) cambió NLP. En series temporales llegaron después:
 
 ---
 
-## Preparación de ventanas
+## De matriz 2D (ML) a tensor 3D (LSTM)
 
-Las RNN/LSTM esperan **tensores 3D**: `(batch, timesteps, features)`. Ejemplo: predecir $y_t$ desde $(y_{t-30}, ..., y_{t-1}, p_{t-1})$.
+**Sesión 3 — ML clásico:** la matriz $X$ era **plana**, un vector por muestra.
+
+$$
+X \in \mathbb{R}^{N \times p} \qquad \text{(samples, features)}
+$$
+
+El orden temporal se codificaba en los **nombres** de columnas (`lag_1`, `lag_7`, `rolling_7`, …) — ya no era una dimensión.
 
 . . .
+
+**LSTM:** la matriz se convierte en un **tensor 3D**.
+
+$$
+X \in \mathbb{R}^{N \times T \times F} \qquad \text{(samples, timesteps, features)}
+$$
+
+Cada muestra es ahora una matriz $T \times F$: $T$ pasos temporales, $F$ series alineadas en cada paso.
+
+. . .
+
+> ML aplana el tiempo en columnas; LSTM lo conserva como una **dimensión propia**.
+
+---
+
+## Ventana deslizante — cómo se construyen las muestras
+
+Una ventana de longitud $w$ recorre la serie. Cada posición produce una muestra $(X_i, y_i)$.
+
+```{python}
+#| label: sliding-window-viz
+#| echo: false
+import matplotlib.patches as mpatches
+
+serie = CAUDAL.dropna().loc["2008-03-01":].iloc[:20]
+y_vals = serie.values
+x_idx = np.arange(len(y_vals))
+
+fig, (ax_top, ax_bot) = plt.subplots(
+    2, 1, figsize=(10, 3.7),
+    gridspec_kw={"height_ratios": [1.5, 1], "hspace": 0.08},
+    sharex=True,
+)
+
+ax_top.plot(x_idx, y_vals, color="#374151", lw=1.0, marker="o", ms=4)
+ax_top.set_ylabel("Q (m³/s)")
+ax_top.tick_params(labelbottom=False)
+
+ventana = 10
+colores = ["#c2410c", "#0e7c5d", "#7c3aed"]
+ax_bot.set_xlabel("día (índice)")
+ax_bot.set_ylim(2.7, -0.7)
+ax_bot.set_yticks([0, 1, 2])
+ax_bot.set_yticklabels(["sample 1", "sample 2", "sample 3"])
+
+for k, color in enumerate(colores):
+    inicio = 3 + k
+    fin = inicio + ventana
+    target = fin
+    ax_bot.add_patch(mpatches.Rectangle(
+        (inicio - 0.45, k - 0.3), ventana - 0.1, 0.6,
+        facecolor=color, alpha=0.35, edgecolor=color, lw=1.2,
+    ))
+    ax_bot.text((inicio + fin - 1) / 2, k, r"$X_i$ (input, $w=10$)",
+                color="black", ha="center", va="center",
+                fontsize=10, fontweight="bold")
+    ax_bot.add_patch(mpatches.Rectangle(
+        (target - 0.4, k - 0.3), 0.8, 0.6,
+        facecolor=color, edgecolor=color, lw=1.2,
+    ))
+    ax_bot.text(target, k, r"$y_i$", color="white",
+                ha="center", va="center", fontsize=10, fontweight="bold")
+
+ax_bot.set_xlim(-1, len(y_vals))
+ax_bot.grid(False)
+for s in ["top", "right", "left"]:
+    ax_bot.spines[s].set_visible(False)
+ax_bot.tick_params(left=False)
+plt.tight_layout()
+```
+
+. . .
+
+Serie de longitud $L$, ventana $w$, horizonte 1 → $N = L - w$ muestras (cada una desplaza la anterior un paso).
+
+---
+
+## Univariate vs multivariate — el tensor en detalle
+
+**Univariate** — sólo caudal, ventana 30 días:
+
+```python
+X.shape   # (N, 30, 1)         cada muestra: matriz 30×1
+y.shape   # (N,)
+```
+
+. . .
+
+**Multivariate** — caudal + lluvia + temperatura:
+
+```python
+X.shape   # (N, 30, 3)         cada muestra: matriz 30×3
+```
+
+| sample $i$ | $Q$ | $P$ | $T$ |
+|---|---|---|---|
+| $t{-}30$ | 12.4 | 0.0 | 9.1 |
+| $\ldots$ | $\ldots$ | $\ldots$ | $\ldots$ |
+| $t{-}1$ | 18.2 | 4.0 | 11.7 |
+
+. . .
+
+> **Pitfall:** la ventana **no introduce lag entre features**. Si quieres que `p_{t-1}` (no `p_t`) prediga `y_t`, aplica `shift(1)` al `DataFrame` ANTES de pasar a `crear_ventanas`.
+
+---
+
+## Preparación de ventanas — código
+
+Implementación de la ventana deslizante (caso univariate):
 
 ```{python}
 #| label: ventana-keras
@@ -423,6 +875,92 @@ std   = np.std(predicciones, axis=0)
 
 ---
 
+## Predicción multi-horizonte — 3 estrategias
+
+Hasta ahora hemos predicho **un solo paso** ($y_{t+1}$). Para predecir $(y_{t+1}, \ldots, y_{t+h})$ hay tres estrategias clásicas:
+
+| | **Direct** | **MIMO** | **Seq2Seq** |
+|---|---|---|---|
+| Modelos | $h$ independientes | 1 | 1 |
+| Capa final | $h$ × `Dense(1)` | `Dense(h)` | decoder + `TimeDistributed(Dense(1))` |
+| Coupling entre outputs | ninguno | sólo vía $h_T$ | vía estado del decoder |
+| Coste de entrenamiento | $h$× | 1× | 1× |
+
+. . .
+
+**Recursive** (multi-step iterando el modelo de 1 paso) **no se usa con RNN** — el error compuesto a 7+ días destruye la calidad. Reservado para clásicos (ARIMA, XGBoost vía skforecast).
+
+. . .
+
+> Default en hidrología: **MIMO**. Salta a seq2seq sólo si MIMO produce trayectorias demasiado "planas".
+
+---
+
+## Sparse MIMO — horizontes no consecutivos
+
+¿Y si sólo quieres $y_{t+7}$ y $y_{t+30}$ (sin los días intermedios)? La respuesta sigue siendo **MIMO**, con `Dense(2)` y un `Y` de shape `(N, 2)`:
+
+```python
+HORIZONTES = [7, 30]
+
+def crear_ventanas_horizontes(df, features, target, ventana, horizontes):
+    offsets = np.asarray(horizontes) - 1
+    max_h = max(horizontes)
+    X, Y, idx = [], [], []
+    for i in range(len(df) - ventana - max_h + 1):
+        X.append(df[features].values[i : i + ventana])
+        Y.append(df[target].values[i + ventana + offsets])
+        idx.append(df.index[i + ventana])
+    return np.asarray(X), np.asarray(Y), pd.DatetimeIndex(idx)
+
+model = Sequential([
+    Input(shape=(VENTANA, F)),
+    LSTM(32), Dropout(0.2),
+    Dense(len(HORIZONTES)),                  # Dense(2)
+])
+```
+
+. . .
+
+**¿Por qué no Direct (2 modelos independientes)?** El encoder $h_T$ codifica el **estado de la cuenca** — informativo para ambos horizontes. Direct entrenaría dos LSTMs separadas que tirarían esa representación compartida.
+
+. . .
+
+> **Con skforecast:** se entrena denso (`steps=30`) y luego `forecaster.predict(steps=[7, 30])` filtra a la inferencia. Para sparse MIMO _en entrenamiento_ hay que construir el modelo a mano.
+
+---
+
+## skforecast — `ForecasterRnn` para Keras
+
+Desde v0.12, skforecast envuelve modelos Keras con la misma API que en sesión 3:
+
+```python
+from skforecast.deep_learning import ForecasterRnn, create_and_compile_model
+from skforecast.model_selection import backtesting_forecaster_multiseries
+
+model = create_and_compile_model(
+    series=df, lags=30, steps=7, levels=["caudal"],
+    recurrent_layer="LSTM", recurrent_units=64,
+)
+forecaster = ForecasterRnn(regressor=model, levels="caudal", lags=30, steps=7)
+forecaster.fit(series=df_train)
+
+metric, preds = backtesting_forecaster_multiseries(
+    forecaster=forecaster, series=df, steps=7,
+    initial_train_size=..., refit=False,
+)
+```
+
+. . .
+
+**Aporta:** backtesting walk-forward, escalado automático, soporte multi-serie. **Estrategia interna:** siempre MIMO (one-shot) — no existe `ForecasterRnnRecursive`.
+
+. . .
+
+> Útil cuando ya tienes pipeline skforecast y quieres añadir un modelo neural sin reescribirlo.
+
+---
+
 ## NeuralHydrology — el referente del DL hidrológico
 
 [`neuralhydrology`](https://neuralhydrology.readthedocs.io/) (Kratzert et al., JKU Linz):
@@ -491,7 +1029,8 @@ static_attributes: [area, slope_mean, ...]
 
 **Práctica (2h):**
 
-1. `01_lstm_caudal_keras.ipynb` (1h) — preparar ventanas, LSTM, callbacks, predicción.
+0. `00_lstm_intuicion_lluvia.ipynb` (15-20 min) — *warm-up*: LSTM diminuta sobre dataset de juguete, gates visualizadas a mano.
+1. `01_lstm_caudal_keras.ipynb` (1h) — preparar ventanas, LSTM, callbacks, predicción sobre caudal real.
 2. `02_comparacion_y_neuralhydrology.ipynb` (30 min) — comparativa final + demo NeuralHydrology.
 3. `03_interpretabilidad_y_errores.ipynb` (15 min) — SHAP recap + análisis por régimen.
 
