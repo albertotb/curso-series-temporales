@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<script src="sesion1_files/libs/clipboard/clipboard.min.js"></script>
+<script src="sesion1_files/libs/quarto-html/tabby.min.js"></script>
+<script src="sesion1_files/libs/quarto-html/popper.min.js"></script>
+<script src="sesion1_files/libs/quarto-html/tippy.umd.min.js"></script>
+<link href="sesion1_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="sesion1_files/libs/quarto-html/light-border.css" rel="stylesheet">
+<link href="sesion1_files/libs/quarto-html/quarto-syntax-highlighting-acf12a64177840b8d86f2d4f01b2e9fb.css" rel="stylesheet" id="quarto-text-highlighting-styles"><meta charset="utf-8">
+  <meta name="generator" content="quarto-1.9.37">
+
+  <meta name="author" content="Alberto Torres · Komorebi AI">
+  <title>Sesión 1 — Fundamentos y exploración</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+  <link rel="stylesheet" href="sesion1_files/libs/revealjs/dist/reset.css">
+  <link rel="stylesheet" href="sesion1_files/libs/revealjs/dist/reveal.css">
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+      }
+    pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+    div.sourceCode
+      { color: #24292e;  }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span { color: #24292e; } /* Normal */
+    code span.al { color: #ff5555; font-weight: bold; } /* Alert */
+    code span.an { color: #6a737d; } /* Annotation */
+    code span.at { color: #d73a49; } /* Attribute */
+    code span.bn { color: #005cc5; } /* BaseN */
+    code span.bu { color: #d73a49; } /* BuiltIn */
+    code span.cf { color: #d73a49; } /* ControlFlow */
+    code span.ch { color: #032f62; } /* Char */
+    code span.cn { color: #005cc5; } /* Constant */
+    code span.co { color: #6a737d; } /* Comment */
+    code span.cv { color: #6a737d; } /* CommentVar */
+    code span.do { color: #6a737d; } /* Documentation */
+    code span.dt { color: #d73a49; } /* DataType */
+    code span.dv { color: #005cc5; } /* DecVal */
+    code span.er { color: #ff5555; text-decoration: underline; } /* Error */
+    code span.ex { color: #d73a49; font-weight: bold; } /* Extension */
+    code span.fl { color: #005cc5; } /* Float */
+    code span.fu { color: #6f42c1; } /* Function */
+    code span.im { color: #032f62; } /* Import */
+    code span.in { color: #6a737d; } /* Information */
+    code span.kw { color: #d73a49; } /* Keyword */
+    code span.op { color: #24292e; } /* Operator */
+    code span.ot { color: #6f42c1; } /* Other */
+    code span.pp { color: #d73a49; } /* Preprocessor */
+    code span.re { color: #6a737d; } /* RegionMarker */
+    code span.sc { color: #005cc5; } /* SpecialChar */
+    code span.ss { color: #032f62; } /* SpecialString */
+    code span.st { color: #032f62; } /* String */
+    code span.va { color: #e36209; } /* Variable */
+    code span.vs { color: #032f62; } /* VerbatimString */
+    code span.wa { color: #ff5555; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="sesion1_files/libs/revealjs/dist/theme/quarto-3e6cd5300265bb1724d145f4e554c9e4.css">
+  <link href="sesion1_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.css" rel="stylesheet">
+  <link href="sesion1_files/libs/revealjs/plugin/reveal-menu/menu.css" rel="stylesheet">
+  <link href="sesion1_files/libs/revealjs/plugin/reveal-menu/quarto-menu.css" rel="stylesheet">
+  <link href="sesion1_files/libs/revealjs/plugin/quarto-support/footer.css" rel="stylesheet">
+  <style type="text/css">
+    .reveal div.sourceCode {
+      margin: 0;
+      overflow: auto;
+    }
+    .reveal div.hanging-indent {
+      margin-left: 1em;
+      text-indent: -1em;
+    }
+    .reveal .slide:not(.center) {
+      height: 100%;
+    }
+    .reveal .slide.scrollable {
+      overflow-y: auto;
+    }
+    .reveal .footnotes {
+      height: 100%;
+      overflow-y: auto;
+    }
+    .reveal .slide .absolute {
+      position: absolute;
+      display: block;
+    }
+    .reveal .footnotes ol {
+      counter-reset: ol;
+      list-style-type: none; 
+      margin-left: 0;
+    }
+    .reveal .footnotes ol li:before {
+      counter-increment: ol;
+      content: counter(ol) ". "; 
+    }
+    .reveal .footnotes ol li > p:first-child {
+      display: inline-block;
+    }
+    .reveal .slide ul,
+    .reveal .slide ol {
+      margin-bottom: 0.5em;
+    }
+    .reveal .slide ul li,
+    .reveal .slide ol li {
+      margin-top: 0.4em;
+      margin-bottom: 0.2em;
+    }
+    .reveal .slide ul[role="tablist"] li {
+      margin-bottom: 0;
+    }
+    .reveal .slide ul li > *:first-child,
+    .reveal .slide ol li > *:first-child {
+      margin-block-start: 0;
+    }
+    .reveal .slide ul li > *:last-child,
+    .reveal .slide ol li > *:last-child {
+      margin-block-end: 0;
+    }
+    .reveal .slide .columns:nth-child(3) {
+      margin-block-start: 0.8em;
+    }
+    .reveal blockquote {
+      box-shadow: none;
+    }
+    .reveal .tippy-content>* {
+      margin-top: 0.2em;
+      margin-bottom: 0.7em;
+    }
+    .reveal .tippy-content>*:last-child {
+      margin-bottom: 0.2em;
+    }
+    .reveal .slide > img.stretch.quarto-figure-center,
+    .reveal .slide > img.r-stretch.quarto-figure-center {
+      display: block;
+      margin-left: auto;
+      margin-right: auto; 
+    }
+    .reveal .slide > img.stretch.quarto-figure-left,
+    .reveal .slide > img.r-stretch.quarto-figure-left  {
+      display: block;
+      margin-left: 0;
+      margin-right: auto; 
+    }
+    .reveal .slide > img.stretch.quarto-figure-right,
+    .reveal .slide > img.r-stretch.quarto-figure-right  {
+      display: block;
+      margin-left: auto;
+      margin-right: 0; 
+    }
+  </style>
+</head>
+<body class="quarto-light">
+  <div class="reveal">
+    <div class="slides">
+
+<section class="quarto-title-block center">
+  <h1 class="title">Sesión 1 — Fundamentos y exploración</h1>
+  <p class="subtitle">Curso de Series Temporales con Python</p>
+
+<div class="quarto-title-authors">
+<div class="quarto-title-author">
+<div class="quarto-title-author-name">
+Alberto Torres · Komorebi AI 
+</div>
+</div>
+</div>
+
+  <p class="date">mayo 2026</p>
+</section>
+<section class="slide level2 section-divider">
+<h2>Bienvenida</h2>
+<p>Curso de <strong>4 sesiones (5 h cada una)</strong> centrado en series temporales en Python.</p>
+<ul>
+<li>Hoy: fundamentos, exploración y limpieza.</li>
+<li>Mañana: modelos estadísticos (ARIMA, ETS, Prophet, Pastas).</li>
+<li>Sesión 3: ML clásico + evaluación.</li>
+<li>Sesión 4: Deep Learning + proyecto final.</li>
+</ul>
+</section>
+<section class="slide level2">
+<h2>Índice</h2>
+<ol type="1">
+<li>¿Qué es una serie temporal?</li>
+<li>Componentes y estacionariedad</li>
+<li>Autocorrelación y correlación cruzada</li>
+<li>Limpieza y agregación</li>
+<li>Práctica guiada en notebooks</li>
+</ol>
+<div class="fragment">
+<p><strong>Dataset común:</strong></p>
+<ul>
+<li>Caudal del <strong>Genil</strong> (ROEA Pinos-Genil 5020, 1970–2021).</li>
+<li>Cota piezométrica <code>PZ0267014</code> (CHD, 1985–2024).</li>
+<li>Lluvia mensual en Iznájar (ROEA 5001).</li>
+</ul>
+</div>
+</section>
+<section class="slide level2 section-divider">
+<h2>Bloque 1 · ¿Qué es una serie temporal?</h2>
+</section>
+<section class="slide level2">
+<h2>Definición</h2>
+<p>Una <strong>serie temporal</strong> es una secuencia de observaciones ordenadas en el tiempo:</p>
+<p><span class="math display">\[
+\{y_t\}_{t=1}^{T},\qquad t \in \mathbb{N}
+\]</span></p>
+<div class="fragment">
+<p>En hidrología típicamente:</p>
+<ul>
+<li><strong>Caudales</strong> <span class="math inline">\(Q_t\)</span> (m³/s): horario, diario.</li>
+<li><strong>Niveles piezométricos</strong> <span class="math inline">\(h_t\)</span> (m s.n.m.): mensual a diario.</li>
+<li><strong>Precipitación</strong> <span class="math inline">\(P_t\)</span> (mm): horario a diario, <strong>acumulada</strong>.</li>
+</ul>
+</div>
+<div class="fragment">
+<p>Lo que las hace especiales: <strong>las observaciones no son independientes</strong>.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Ejemplo: caudal real del Genil</h2>
+<div id="cell-fig-caudal-genil" class="cell" data-execution_count="2">
+<div class="cell-output cell-output-display">
+<div id="fig-caudal-genil" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-caudal-genil-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-caudal-genil-output-1.png" width="850" height="331">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-caudal-genil-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;1: Caudal diario en Pinos-Genil (1975–2020) — ROEA 5020
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="fragment">
+<p>Se observan: estacionalidad anual, eventos extremos, gaps.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Frecuencias y problemas típicos</h2>
+<p><strong>Frecuencias</strong> que veremos: horaria (SAIH), diaria (aforos, base del curso), mensual (piezometría), irregular (manantiales).</p>
+<div class="fragment">
+<p><strong>Problemas</strong> que aborda el curso:</p>
+<ul>
+<li>Descripción / EDA.</li>
+<li>Predicción puntual a corto/medio plazo.</li>
+<li>Predicciones probabilistas.</li>
+</ul>
+</div>
+</section>
+<section class="slide level2">
+<h2>Por qué no vale el train/test aleatorio</h2>
+<p>Con datos i.i.d.: dividir aleatoriamente 80/20 es válido. Con series:</p>
+<div class="fragment">
+<ul>
+<li><strong>Las observaciones están correlacionadas</strong>: el modelo “aprende del futuro”.</li>
+<li><strong>Hay tendencias y estacionalidad</strong> que el split aleatorio rompe.</li>
+<li>Métricas optimistas → falsa confianza.</li>
+</ul>
+</div>
+<div class="fragment">
+<p><strong>Regla:</strong> train/val/test respetando la secuencia temporal (<code>X[:t1]</code>, <code>X[t1:t2]</code>, <code>X[t2:]</code>). Para validación cruzada usamos: <em>walk-forward</em> o expanding window (sesión 3).</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Ejemplo: crecida de feb 1985</h2>
+<div id="cell-fig-crecida-1985" class="cell" data-execution_count="3">
+<div class="cell-output cell-output-display">
+<div id="fig-crecida-1985" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-crecida-1985-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-crecida-1985-output-1.png" width="850" height="331">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-crecida-1985-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;2: Evento extremo: crecida de febrero 1985 (Genil)
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Pico de <strong>230 m³/s</strong> el 11 de febrero. Predecir este tipo de eventos únicamente con los valores de la series temporal es complejo.</p>
+</section>
+<section class="slide level2 section-divider">
+<h2>Bloque 2 · Componentes y estacionariedad</h2>
+</section>
+<section class="slide level2">
+<h2>Hidrograma — intuición física antes de la estadística</h2>
+<p>Un evento de lluvia produce una respuesta de caudal con forma característica:</p>
+<ul>
+<li><strong>Subida</strong> rápida (minutos–horas).</li>
+<li><strong>Pico</strong> <span class="math inline">\(Q_p\)</span>.</li>
+<li><strong>Recesión</strong> aproximadamente exponencial: <span class="math inline">\(Q(t) = Q_p \cdot e^{-t/\tau}\)</span>, con <span class="math inline">\(\tau\)</span> = <strong>tiempo de respuesta</strong> característico de la cuenca (horas–días).</li>
+<li><strong>Caudal base</strong> (aporte subterráneo, lento).</li>
+</ul>
+</section>
+<section class="slide level2">
+<h2>Hidrograma — ejemplo Genil (feb 1985)</h2>
+<div id="cell-fig-hidrograma" class="cell" data-execution_count="4">
+<div class="cell-output cell-output-display">
+<div id="fig-hidrograma" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-hidrograma-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-hidrograma-output-1.png" width="851" height="294">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-hidrograma-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;3: Hidrograma típico — evento de feb 1985 (Pinos-Genil)
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section class="slide level2">
+<h2>Qué implica esto para la modelización</h2>
+<ul>
+<li>La <strong>dependencia entre observaciones cercanas</strong> viene del flujo base y la recesión: es <strong>mecánica</strong>, no “memoria” estadística que un modelo sobre el caudal solo pueda explotar para predecir picos.</li>
+<li>Los <strong>picos</strong> son casi impredecibles desde el caudal sólo → necesitan <strong>lluvia</strong> como covariable (lo veremos al final de este bloque y en sesión 2).</li>
+<li>El mismo <span class="math inline">\(\tau\)</span> de la recesión es la <strong>memoria</strong> de la cuenca: la lluvia caída hace <span class="math inline">\(t\)</span> días pesa <span class="math inline">\(\propto e^{-t/\tau}\)</span> en el caudal de hoy. En la práctica basta incluir lags hasta <span class="math inline">\(\sim 3\tau\)</span>–<span class="math inline">\(5\tau\)</span>.</li>
+<li>En piezometría aparece el mismo patrón pero <span class="math inline">\(\tau\)</span> es de <strong>meses–años</strong> (recarga lenta).</li>
+</ul>
+<div class="fragment">
+<p><strong>Mensaje:</strong> modelar bien series hidrológicas exige conocer mínimamente la física del proceso, no sólo la estadística.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Descomposición conceptual</h2>
+<p>Una serie se puede escribir como suma (modelo <strong>aditivo</strong>):</p>
+<p><span class="math display">\[
+y_t = T_t + S_t + C_t + \varepsilon_t
+\]</span></p>
+<div class="fragment">
+<ul>
+<li><span class="math inline">\(T_t\)</span> tendencia (cambio lento, no periódico).</li>
+<li><span class="math inline">\(S_t\)</span> estacionalidad (periodo conocido: anual, semanal…).</li>
+<li><span class="math inline">\(C_t\)</span> ciclo (periodo desconocido o variable).</li>
+<li><span class="math inline">\(\varepsilon_t\)</span> residuo / ruido.</li>
+</ul>
+</div>
+<div class="fragment">
+<p>O multiplicativo: <span class="math inline">\(y_t = T_t \cdot S_t \cdot \varepsilon_t\)</span> (varianza crece con el nivel).</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Estacional vs cíclico</h2>
+<table class="caption-top">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Estacional</strong> (<span class="math inline">\(S_t\)</span>)</th>
+<th><strong>Cíclico</strong> (<span class="math inline">\(C_t\)</span>)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Periodo</td>
+<td><strong>Fijo y conocido</strong></td>
+<td>Variable, <strong>desconocido</strong></td>
+</tr>
+<tr class="even">
+<td>Duración típica</td>
+<td><span class="math inline">\(\le\)</span> 1 año</td>
+<td><span class="math inline">\(\ge\)</span> 2 años</td>
+</tr>
+<tr class="odd">
+<td>Magnitud</td>
+<td>Relativamente estable</td>
+<td>Muy variable</td>
+</tr>
+<tr class="even">
+<td>Predictibilidad de picos</td>
+<td>Alta (sabes <em>cuándo</em>)</td>
+<td>Baja a largo plazo</td>
+</tr>
+</tbody>
+</table>
+<div class="fragment">
+<p><strong>En hidrología:</strong></p>
+<ul>
+<li><strong>Estacional</strong>: ciclo anual de caudal (deshielo, lluvia mediterránea de otoño).</li>
+<li><strong>Cíclico</strong>: secuencias plurianuales secas/húmedas (NAO/ENSO); ciclos lentos de recarga.</li>
+</ul>
+</div>
+<div class="fragment">
+<blockquote>
+<p>STL captura <span class="math inline">\(S\)</span>, no <span class="math inline">\(C\)</span>: confundirlos y pasar <code>period=N</code> te devuelve una estacionalidad <strong>espuria</strong>.</p>
+</blockquote>
+</div>
+</section>
+<section class="slide level2">
+<h2>Aditivo vs multiplicativo</h2>
+<div class="columns">
+<div class="column" style="width:50%;">
+<p><strong>Aditivo</strong></p>
+<ul>
+<li>Estacionalidad de <strong>amplitud constante</strong>.</li>
+<li>Buen ajuste para piezometría, temperatura.</li>
+</ul>
+</div><div class="column" style="width:50%;">
+<p><strong>Multiplicativo</strong></p>
+<ul>
+<li>Amplitud <strong>proporcional al nivel</strong>.</li>
+<li>Habitual en caudales, demanda eléctrica.</li>
+<li>Truco: aplicar <span class="math inline">\(\log\)</span> → vuelve aditivo.</li>
+</ul>
+</div></div>
+<div class="fragment">
+<p>En la práctica: si dudas, <strong>prueba ambos</strong> y compara residuos.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Visualizar la estacionalidad — boxplots por mes</h2>
+<p>Antes de descomponer formalmente, una visualización rápida: <strong>una caja por mes</strong> del año.</p>
+<div id="cell-fig-subseries" class="cell" data-execution_count="5">
+<div class="cell-output cell-output-display">
+<div id="fig-subseries" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-subseries-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-subseries-output-1.png" width="851" height="275">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-subseries-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;4: Distribución del caudal medio mensual del Genil por mes (1995–2020)
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="fragment">
+<p>Revela de un vistazo: <strong>forma</strong> del ciclo (pico <strong>may-ago</strong> por deshielo de Sierra Nevada, estiaje en otoño), <strong>amplitud</strong> de la estacionalidad y si la varianza crece con el nivel ⇒ pista de patrón <strong>multiplicativo</strong>.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Ruido blanco</h2>
+<p>La componente <span class="math inline">\(\varepsilon_t\)</span> de la descomposición tiene nombre propio. Una secuencia <span class="math inline">\(\{\varepsilon_t\}\)</span> es <strong>ruido blanco</strong> si:</p>
+<p><span class="math display">\[
+\mathbb{E}[\varepsilon_t] = 0, \quad \mathrm{Var}(\varepsilon_t) = \sigma^2, \quad \mathrm{Cov}(\varepsilon_t, \varepsilon_s) = 0 \;\; \forall t \neq s
+\]</span></p>
+<div class="fragment">
+<p>Es <strong>estacionario por construcción</strong> y <strong>no tiene memoria</strong>: el pasado no informa del futuro.</p>
+</div>
+<div class="fragment">
+<p><strong>¿Por qué es la referencia?</strong></p>
+<ul>
+<li>Es el “objetivo” del residuo: si tras descomponer (STL) o modelar (ARIMA) el residuo es ruido blanco ⇒ hemos capturado toda la señal.</li>
+<li>Si <strong>no</strong> lo es ⇒ queda estructura que un modelo puede explotar.</li>
+<li>Lo formalizaremos con el <strong>test de Ljung-Box</strong> (bloque 3) y al diagnosticar ARIMA (sesión 2).</li>
+</ul>
+</div>
+</section>
+<section class="slide level2">
+<h2>Estacionariedad</h2>
+<p><strong>Intuición:</strong> una serie es estacionaria tiene la misma media, misma variabilidad y misma forma de oscilar a lo largo del tiempo.</p>
+<div class="fragment">
+<p><strong>Formal (estricta):</strong> la distribución conjunta de <span class="math inline">\((y_{t_1}, ..., y_{t_k})\)</span> es invariante a traslaciones temporales.</p>
+</div>
+<div class="fragment">
+<p>Más práctico: <strong>estacionariedad débil</strong> (covarianza-estacionariedad):</p>
+<ol type="1">
+<li><span class="math inline">\(\mathbb{E}[y_t] = \mu\)</span> constante.</li>
+<li><span class="math inline">\(\mathrm{Var}(y_t) = \sigma^2\)</span> constante.</li>
+<li><span class="math inline">\(\mathrm{Cov}(y_t, y_{t+h}) = \gamma(h)\)</span> depende solo del <em>lag</em> <span class="math inline">\(h\)</span>.</li>
+</ol>
+</div>
+<div class="fragment">
+<p><strong>¿Por qué importa?</strong> Casi todos los modelos clásicos (ARMA, ARIMA) asumen que la serie es estacionaria — al menos tras transformarla.</p>
+</div>
+</section>
+<section class="slide level2 medium-fig">
+<h2>Estacionariedad — ejemplos</h2>
+<div id="cell-fig-estacionariedad-demo" class="cell" data-execution_count="6">
+<div class="cell-output cell-output-display">
+<div id="fig-estacionariedad-demo" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-estacionariedad-demo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-estacionariedad-demo-output-1.png" width="1044" height="659">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-estacionariedad-demo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;5: Cuatro series: dos estacionarias, dos no
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="fragment">
+<p><strong>Regla rápida (visual):</strong> si la <strong>media</strong> o la <strong>amplitud</strong> parecen depender del tiempo (deriva, estacionalidad, varianza creciente), no es estacionaria. Si solo hay rachas alrededor de un nivel constante, <strong>sí</strong> lo es.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Tests de estacionariedad</h2>
+<p>Dos tests complementarios:</p>
+<ul>
+<li><strong>ADF</strong> (Augmented Dickey-Fuller): <span class="math inline">\(H_0\)</span> = no estacionaria. Rechazar <span class="math inline">\(H_0\)</span> con <span class="math inline">\(p &lt; 0.05\)</span> ⇒ estacionaria.</li>
+<li><strong>KPSS</strong>: <span class="math inline">\(H_0\)</span> = <strong>es</strong> estacionaria. Rechazar ⇒ no estacionaria.</li>
+</ul>
+<div class="fragment">
+<div id="tests-adf-kpss" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href=""></a><span class="im">from</span> statsmodels.tsa.stattools <span class="im">import</span> adfuller, kpss</span>
+<span id="cb1-2"><a href=""></a>serie <span class="op">=</span> CAUDAL.loc[<span class="st">"2000"</span>:<span class="st">"2020"</span>].dropna()</span>
+<span id="cb1-3"><a href=""></a>adf_p <span class="op">=</span> adfuller(serie)[<span class="dv">1</span>]</span>
+<span id="cb1-4"><a href=""></a>kpss_p <span class="op">=</span> kpss(serie, regression<span class="op">=</span><span class="st">"c"</span>, nlags<span class="op">=</span><span class="st">"auto"</span>)[<span class="dv">1</span>]</span>
+<span id="cb1-5"><a href=""></a><span class="bu">print</span>(<span class="ss">f"ADF p-valor : </span><span class="sc">{</span>adf_p<span class="sc">:.4f}</span><span class="ss">   (rechaza H0 ⇒ estacionaria)"</span>)</span>
+<span id="cb1-6"><a href=""></a><span class="bu">print</span>(<span class="ss">f"KPSS p-valor: </span><span class="sc">{</span>kpss_p<span class="sc">:.4f}</span><span class="ss">  (rechaza H0 ⇒ NO estacionaria)"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>ADF p-valor : 0.0000   (rechaza H0 ⇒ estacionaria)
+KPSS p-valor: 0.1000  (rechaza H0 ⇒ NO estacionaria)</code></pre>
+</div>
+</div>
+<p><strong>Buena práctica:</strong> correr los dos. Conclusiones contradictorias ⇒ revisar tendencia y estacionalidad.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Trend-stationary vs difference-stationary</h2>
+<p>Dos formas distintas de “no ser estacionaria”, con <strong>remedios opuestos</strong>:</p>
+<ul>
+<li><strong>Trend-stationary</strong>: hay una tendencia <em>determinista</em>. Estacionaria tras <strong>quitarla</strong>. <span class="math inline">\(y_t = a + b\,t + \eta_t\)</span>, con <span class="math inline">\(\eta_t\)</span> estacionario.</li>
+<li><strong>Difference-stationary</strong>: la tendencia es <em>estocástica</em>. Estacionaria tras <strong>diferenciar</strong>. <span class="math inline">\(\nabla y_t\)</span> es estacionario, <span class="math inline">\(y_t\)</span> no.</li>
+</ul>
+<div class="fragment">
+<p><strong>Confundirlos lleva al modelo equivocado.</strong> ADF y KPSS combinados los distinguen:</p>
+<table class="caption-top">
+<thead>
+<tr class="header">
+<th>ADF rechaza?</th>
+<th>KPSS rechaza?</th>
+<th>Conclusión</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Sí</td>
+<td>No</td>
+<td><strong>Estacionaria</strong> ✓</td>
+</tr>
+<tr class="even">
+<td>No</td>
+<td>Sí</td>
+<td><strong>Raíz unitaria</strong> ⇒ diferenciar</td>
+</tr>
+<tr class="odd">
+<td>Sí</td>
+<td>Sí</td>
+<td><strong>Trend-stationary</strong> ⇒ quitar tendencia (no diferenciar)</td>
+</tr>
+<tr class="even">
+<td>No</td>
+<td>No</td>
+<td>Inconcluso ⇒ ampliar muestra / inspección visual</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section class="slide level2">
+<h2>Cuando no es estacionaria: transformaciones</h2>
+<p>Tres opciones clásicas:</p>
+<ol type="1">
+<li><strong>Diferenciación</strong>: <span class="math inline">\(\nabla y_t = y_t - y_{t-1}\)</span> (elimina tendencia lineal). Para estacionalidad: <span class="math inline">\(\nabla_s y_t = y_t - y_{t-s}\)</span>.</li>
+<li><strong>Logaritmo</strong> <span class="math inline">\(\log y_t\)</span>: estabiliza varianza si crece con el nivel.</li>
+<li><strong>Box-Cox</strong>: <span class="math inline">\(y^{(\lambda)}\)</span> generalización paramétrica.</li>
+</ol>
+</section>
+<section class="slide level2">
+<h2>Diferenciación — ejemplo Genil</h2>
+<div id="cell-fig-diff" class="cell" data-execution_count="8">
+<div class="cell-output cell-output-display">
+<div id="fig-diff" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-diff-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-diff-output-1.png" width="851" height="371">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-diff-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;6: Caudal del Genil y su diferencia primera (2010–2015)
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section class="slide level2">
+<h2>Box-Cox — generalización paramétrica</h2>
+<p>Familia paramétrica que engloba log y otras potencias:</p>
+<p><span class="math display">\[
+y^{(\lambda)} = \begin{cases}
+\dfrac{y^{\lambda} - 1}{\lambda}, &amp; \lambda \neq 0 \\[4pt]
+\log y, &amp; \lambda = 0
+\end{cases}
+\]</span></p>
+<div class="fragment">
+<p><span class="math inline">\(\lambda\)</span> se estima automáticamente maximizando la verosimilitud: - <span class="math inline">\(\lambda = 1\)</span> → identidad. - <span class="math inline">\(\lambda = 0.5\)</span> → raíz (intermedia). - <span class="math inline">\(\lambda = 0\)</span> → logaritmo (estabiliza varianza proporcional). - <span class="math inline">\(\lambda &lt; 0\)</span> → inversa, compresión fuerte.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Box-Cox — estimación de <span class="math inline">\(\lambda\)</span></h2>
+<div id="boxcox" class="cell" data-execution_count="9">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href=""></a><span class="im">from</span> scipy.stats <span class="im">import</span> boxcox</span>
+<span id="cb3-2"><a href=""></a>serie <span class="op">=</span> CAUDAL.dropna().clip(lower<span class="op">=</span><span class="fl">0.1</span>).values</span>
+<span id="cb3-3"><a href=""></a>y_bc, lmbda <span class="op">=</span> boxcox(serie)</span>
+<span id="cb3-4"><a href=""></a><span class="bu">print</span>(<span class="ss">f"λ óptimo (MLE): </span><span class="sc">{</span>lmbda<span class="sc">:.3f}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>λ óptimo (MLE): -0.046</code></pre>
+</div>
+</div>
+<blockquote>
+<p>Requiere <span class="math inline">\(y &gt; 0\)</span>. Si la serie tiene 0 (ríos efímeros) → usar <strong>Yeo-Johnson</strong>.</p>
+</blockquote>
+</section>
+<section class="slide level2">
+<h2>Yeo-Johnson — generalización para 0 y negativos</h2>
+<p>Box-Cox <strong>necesita <span class="math inline">\(y &gt; 0\)</span></strong>. Yeo-Johnson (2000) extiende la idea a <span class="math inline">\(y \in \mathbb{R}\)</span> tratando las partes positiva y negativa por separado:</p>
+<p><span class="math display">\[
+\psi(\lambda, y) = \begin{cases}
+\dfrac{(y+1)^\lambda - 1}{\lambda}, &amp; y \ge 0 \\[6pt]
+-\dfrac{(-y+1)^{2-\lambda} - 1}{2-\lambda}, &amp; y &lt; 0
+\end{cases}
+\]</span></p>
+</section>
+<section class="slide level2">
+<h2>Descomposición STL</h2>
+<p><strong>STL</strong> = Seasonal-Trend decomposition using <strong>LOESS</strong>. Cleveland et al.&nbsp;(1990).</p>
+<div class="fragment">
+<ul>
+<li><strong>Robusta</strong> a outliers (a diferencia del clásico <code>seasonal_decompose</code>).</li>
+<li>Permite estacionalidad que <strong>cambia con el tiempo</strong> (ventana ajustable).</li>
+<li>Es <strong>aditiva</strong> (aplicar a <span class="math inline">\(\log y\)</span> si necesitas multiplicativa).</li>
+</ul>
+</div>
+</section>
+<section class="slide level2">
+<h2>¿Qué es LOESS?</h2>
+<p><strong>LOESS</strong> (<em>LOcally Estimated Scatterplot Smoothing</em>, Cleveland 1979) = regresión local no paramétrica.</p>
+<div class="fragment">
+<p><strong>Idea:</strong> para cada <span class="math inline">\(x_i\)</span>, ajusta un polinomio pequeño (lineal o cuadrático) usando solo los <strong>vecinos cercanos</strong> (ancho ventana, <code>frac</code>), ponderados por distancia.</p>
+<div id="cell-fig-loess-demo" class="cell" data-execution_count="10">
+<div class="cell-output cell-output-display">
+<div id="fig-loess-demo" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-loess-demo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-loess-demo-output-1.png" width="852" height="294">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-loess-demo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;7: LOESS con dos anchos de ventana sobre datos ruidosos
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="slide level2">
+<h2>STL vs <code>seasonal_decompose</code> clásico</h2>
+<p><code>seasonal_decompose</code> es la <strong>función</strong> de statsmodels que implementa el método clásico (medias móviles, Persons 1919). Misma API que STL, otro algoritmo:</p>
+<div class="fragment">
+<table class="caption-top">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>Clásico (<code>seasonal_decompose</code>)</th>
+<th>STL</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Suavizado de tendencia</td>
+<td>Media móvil de tamaño <code>period</code></td>
+<td>LOESS</td>
+</tr>
+<tr class="even">
+<td>Estacionalidad</td>
+<td><strong>Fija</strong> (misma todos los años)</td>
+<td><strong>Evoluciona</strong> (ventana ajustable)</td>
+</tr>
+<tr class="odd">
+<td>Outliers</td>
+<td>Sensible</td>
+<td>Robusto (<code>robust=True</code>)</td>
+</tr>
+<tr class="even">
+<td>Aditiva / multiplicativa</td>
+<td>Ambas (<code>model="additive"/"multiplicative"</code>)</td>
+<td>Solo aditiva (aplicar <code>log</code> si hace falta)</td>
+</tr>
+<tr class="odd">
+<td>Bordes de la serie</td>
+<td>Pierde <code>period/2</code> valores</td>
+<td>Cubre toda la serie</td>
+</tr>
+<tr class="even">
+<td>Cuándo usarla</td>
+<td>Baseline rápido, didáctico</td>
+<td>Análisis serio / producción</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="fragment">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href=""></a><span class="im">from</span> statsmodels.tsa.seasonal <span class="im">import</span> seasonal_decompose, STL</span>
+<span id="cb5-2"><a href=""></a>clasica <span class="op">=</span> seasonal_decompose(serie, model<span class="op">=</span><span class="st">"additive"</span>, period<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb5-3"><a href=""></a>stl     <span class="op">=</span> STL(serie, period<span class="op">=</span><span class="dv">12</span>, robust<span class="op">=</span><span class="va">True</span>).fit()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section class="slide level2 large-fig">
+<h2>STL — ejemplo Genil mensual</h2>
+<div id="cell-fig-stl" class="cell" data-execution_count="11">
+<div class="cell-output cell-output-display">
+<div id="fig-stl" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-stl-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-stl-output-1.png" width="1043" height="562">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-stl-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;8: STL del caudal mensual del Genil (1995–2020)
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section class="slide level2">
+<h2>STL — parámetros prácticos</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href=""></a>STL(serie, period<span class="op">=</span><span class="dv">12</span>, seasonal<span class="op">=</span><span class="dv">13</span>, trend<span class="op">=</span><span class="va">None</span>, robust<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+<ul>
+<li><strong><code>period</code></strong>: longitud del ciclo en número de observaciones (depende de la frecuencia de la serie).</li>
+<li><strong><code>seasonal</code></strong>: ventana LOESS de estacionalidad (impar, ≥ 7). Pequeño → cambia rápido; grande → rígida.</li>
+<li><strong><code>trend</code></strong>: ventana de tendencia (por defecto <span class="math inline">\(\approx 1.5 \cdot\)</span><code>period</code>).</li>
+<li><strong><code>robust=True</code></strong>: descuenta outliers → <strong>por defecto en hidrología</strong>.</li>
+</ul>
+<div class="fragment">
+<p><strong>Reglas prácticas:</strong> empieza siempre con <code>robust=True</code> y <code>seasonal=13</code>; si el panel <code>seasonal</code> captura picos puntuales → <code>seasonal</code> mayor; si la tendencia “sigue” eventos extremos → <code>trend</code> mayor.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>STL — lectura de componentes</h2>
+<p>Lo que buscamos en cada panel:</p>
+<ul>
+<li><strong>Observed</strong>: serie original.</li>
+<li><strong>Trend</strong>: ¿hay deriva? ¿cambios de régimen?</li>
+<li><strong>Seasonal</strong>: ¿amplitud estable? ¿el ciclo evoluciona?</li>
+<li><strong>Residual</strong>: ¿ruido blanco o sigue habiendo patrón?</li>
+</ul>
+<div class="fragment">
+<p><strong>Si el residuo no es ruido blanco</strong> ⇒ STL no es suficiente; queda estructura que un modelo puede capturar.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Fuerza de tendencia y estacionalidad</h2>
+<p>¿Qué fracción de la varianza explica cada componente? (Hyndman &amp; Athanasopoulos, 2021):</p>
+<p><span class="math display">\[
+F_T = \max\!\left(0,\; 1 - \frac{\mathrm{Var}(R_t)}{\mathrm{Var}(T_t + R_t)}\right), \qquad
+F_S = \max\!\left(0,\; 1 - \frac{\mathrm{Var}(R_t)}{\mathrm{Var}(S_t + R_t)}\right)
+\]</span></p>
+<p>Valores en <span class="math inline">\([0, 1]\)</span>: 0 = componente ausente, 1 = la componente lo explica todo. Útil para <strong>comparar series</strong> o <strong>periodos</strong> (¿se atenúa la estacionalidad del Genil tras décadas de regulación?).</p>
+<div class="fragment">
+<div id="fuerza-componentes" class="cell" data-execution_count="12">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href=""></a>T, S, R <span class="op">=</span> stl.trend, stl.seasonal, stl.resid</span>
+<span id="cb7-2"><a href=""></a>F_T <span class="op">=</span> <span class="bu">max</span>(<span class="dv">0</span>, <span class="dv">1</span> <span class="op">-</span> R.var() <span class="op">/</span> (T <span class="op">+</span> R).var())</span>
+<span id="cb7-3"><a href=""></a>F_S <span class="op">=</span> <span class="bu">max</span>(<span class="dv">0</span>, <span class="dv">1</span> <span class="op">-</span> R.var() <span class="op">/</span> (S <span class="op">+</span> R).var())</span>
+<span id="cb7-4"><a href=""></a><span class="bu">print</span>(<span class="ss">f"F_T (tendencia)      = </span><span class="sc">{</span>F_T<span class="sc">:.2f}</span><span class="ss">"</span>)</span>
+<span id="cb7-5"><a href=""></a><span class="bu">print</span>(<span class="ss">f"F_S (estacionalidad) = </span><span class="sc">{</span>F_S<span class="sc">:.2f}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>F_T (tendencia)      = 0.20
+F_S (estacionalidad) = 0.21</code></pre>
+</div>
+</div>
+</div>
+</section>
+<section class="slide level2 large-fig">
+<h2>STL — ejemplo piezometría PZ0267014</h2>
+<div id="cell-fig-stl-piezo" class="cell" data-execution_count="13">
+<div class="cell-output cell-output-display">
+<div id="fig-stl-piezo" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-stl-piezo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-stl-piezo-output-1.png" width="1043" height="562">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-stl-piezo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;9: STL de la cota piezométrica mensual PZ0267014 (Duero, 2010–2024)
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section class="slide level2">
+<h2>STL — lectura comparada</h2>
+<p>Mismo método, dos regímenes muy distintos:</p>
+<div id="stl-comparada" class="cell" data-execution_count="14">
+<div class="cell-output cell-output-stdout">
+<pre><code>serie                    F_T   F_S
+Caudal Genil (Q)        0.20  0.21
+Piezometría (h)         0.80  0.26</code></pre>
+</div>
+</div>
+<div class="fragment">
+<ul>
+<li><strong>Genil</strong>: <span class="math inline">\(F_T \approx F_S \approx 0.2\)</span> — <em>ninguna</em> componente domina. Los <strong>eventos extremos</strong> (crecidas) hinchan la varianza residual y “tapan” la señal estacional aunque visualmente sea clara.</li>
+<li><strong>Piezometría</strong>: <span class="math inline">\(F_T \approx 0.80\)</span>, <span class="math inline">\(F_S \approx 0.26\)</span> ⇒ la <strong>tendencia domina</strong> (régimen lento de recarga/bombeo, cambios decadales).</li>
+</ul>
+</div>
+<div class="fragment">
+<blockquote>
+<p><strong>Implicación:</strong> la primera lectura de un STL debería ser <em>“¿qué pesa más, qué queda fuera?”</em>. En piezometría los residuos aún tienen autocorrelación → motiva los modelos de <strong>Pastas</strong> en sesión 2.</p>
+</blockquote>
+</div>
+</section>
+<section class="slide level2">
+<h2>Múltiples estacionalidades — MSTL</h2>
+<p>Series sub-diarias o diarias suelen tener <strong>varios ciclos solapados</strong>:</p>
+<ul>
+<li>Caudal horario: ciclo <strong>diario</strong> (regulación, deshielo) + <strong>semanal</strong> (gestión) + <strong>anual</strong>.</li>
+<li>Demanda eléctrica, tráfico web: misma estructura.</li>
+</ul>
+<div class="fragment">
+<p>STL clásico admite <strong>un único periodo</strong>. La extensión <strong>MSTL</strong> (Bandara, Hyndman &amp; Bergmeir, 2021) ajusta varios periodos secuencialmente, de menor a mayor:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href=""></a><span class="im">from</span> statsmodels.tsa.seasonal <span class="im">import</span> MSTL</span>
+<span id="cb10-2"><a href=""></a>mstl <span class="op">=</span> MSTL(serie_horaria, periods<span class="op">=</span>(<span class="dv">24</span>, <span class="dv">24</span><span class="op">*</span><span class="dv">7</span>, <span class="dv">24</span><span class="op">*</span><span class="dv">365</span>)).fit()</span>
+<span id="cb10-3"><a href=""></a>mstl.plot()</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="fragment">
+<p>En este curso usaremos STL con un periodo, pero conviene saber que existe — e <strong>ignorar una estacionalidad real</strong> suele dejar estructura visible en la ACF de los residuos.</p>
+</div>
+</section>
+<section class="slide level2 section-divider">
+<h2>Bloque 3 · Autocorrelación y correlación cruzada</h2>
+</section>
+<section class="slide level2">
+<h2>Autocorrelación (ACF)</h2>
+<p>La <strong>función de autocorrelación</strong> mide la correlación entre <span class="math inline">\(y_t\)</span> e <span class="math inline">\(y_{t-k}\)</span>:</p>
+<p><span class="math display">\[
+\rho(k) = \frac{\mathrm{Cov}(y_t, y_{t-k})}{\mathrm{Var}(y_t)}
+\]</span></p>
+<div class="fragment">
+<p>Cómo se interpreta la ACF según el tipo de serie:</p>
+<ul>
+<li><strong>Estacionaria</strong>: <span class="math inline">\(\hat{\rho}(k) \to 0\)</span> rápido.</li>
+<li><strong>Con tendencia</strong>: lags pequeños <strong>grandes y positivos</strong>, decae lentamente.</li>
+<li><strong>Estacional</strong>: picos en lags <strong>múltiplos del periodo</strong> (<span class="math inline">\(k = s, 2s, \ldots\)</span>).</li>
+<li><strong>Tendencia + estacionalidad</strong>: combinación — decaimiento lento con picos superpuestos.</li>
+</ul>
+</div>
+</section>
+<section class="slide level2">
+<h2>ACF — ¿qué son las bandas de confianza?</h2>
+<p>Bajo la hipótesis de <strong>ruido blanco</strong>, la ACF muestral <span class="math inline">\(\hat{\rho}(k)\)</span> tiene distribución asintótica:</p>
+<p><span class="math display">\[
+\hat{\rho}(k) \overset{d}{\sim} \mathcal{N}\!\left(0,\; \frac{1}{T}\right), \quad k \neq 0
+\]</span></p>
+<p>donde <span class="math inline">\(T\)</span> es la longitud de la serie.</p>
+<div class="fragment">
+<p>Por tanto el <strong>95% de los <span class="math inline">\(\hat{\rho}(k)\)</span></strong> caen dentro de <span class="math inline">\(\pm 1.96/\sqrt{T}\)</span>: son los <strong>valores críticos</strong>.</p>
+</div>
+<div class="fragment">
+<p>Las <strong>bandas azules</strong> que aparecen en <code>plot_acf</code> son exactamente <span class="math inline">\(\pm 1.96/\sqrt{T}\)</span>:</p>
+<ul>
+<li><span class="math inline">\(\hat{\rho}(k)\)</span> <strong>dentro</strong> → compatible con ruido blanco.</li>
+<li><span class="math inline">\(\hat{\rho}(k)\)</span> <strong>fuera</strong> → evidencia de autocorrelación real al nivel <span class="math inline">\(\alpha = 0.05\)</span>.</li>
+</ul>
+</div>
+<div class="fragment">
+<blockquote>
+<p><strong>Implicación práctica:</strong> con <span class="math inline">\(T = 1000\)</span>, banda <span class="math inline">\(\approx \pm 0.06\)</span>. Con <span class="math inline">\(T = 100\)</span>, banda <span class="math inline">\(\approx \pm 0.20\)</span>. <strong>Las series cortas necesitan correlaciones más grandes</strong> para considerarse significativas.</p>
+</blockquote>
+</div>
+</section>
+<section class="slide level2">
+<h2>ACF — ejemplo Genil</h2>
+<div id="cell-fig-acf" class="cell" data-execution_count="15">
+<div class="cell-output cell-output-display">
+<div id="fig-acf" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-acf-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-acf-output-1.png" width="852" height="330">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-acf-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;10: ACF del caudal diario (2010–2020, hasta 60 días)
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="fragment">
+<p>Decae despacio ⇒ memoria larga, persistencia del flujo base.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>ACF mensual — Genil</h2>
+<div id="cell-fig-acf-mensual" class="cell" data-execution_count="16">
+<div class="cell-output cell-output-display">
+<div id="fig-acf-mensual" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-acf-mensual-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-acf-mensual-output-1.png" width="852" height="254">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-acf-mensual-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;11: Caudal mensual del Genil, 1995–2020
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="fragment">
+<ul>
+<li><strong>Persistencia mensual</strong> (lag 1 ≈ 0.65) que decae en 3-4 meses.</li>
+<li><strong>Pico anual</strong> en lag 12 (≈ 0.20) → confirma la estacionalidad, aunque <strong>modesta</strong> (coherente con el <span class="math inline">\(F_S\)</span> bajo de antes).</li>
+<li><strong>Valle negativo</strong> en lags 17-20 (≈ −0.20): meses opuestos del ciclo deshielo-estiaje.</li>
+</ul>
+</div>
+</section>
+<section class="slide level2">
+<h2>Autocorrelación parcial (PACF)</h2>
+<p>La <strong>PACF</strong> mide la correlación entre <span class="math inline">\(y_t\)</span> e <span class="math inline">\(y_{t-k}\)</span> <strong>tras eliminar el efecto de los lags intermedios</strong> <span class="math inline">\(y_{t-1}, ..., y_{t-k+1}\)</span>.</p>
+<div class="fragment">
+<p><strong>Intuición:</strong></p>
+<ul>
+<li>ACF pregunta <em>“¿se parece <span class="math inline">\(y_t\)</span> a <span class="math inline">\(y_{t-k}\)</span>?”</em>.</li>
+<li>PACF pregunta <em>“¿añade <span class="math inline">\(y_{t-k}\)</span> información si ya conozco los lags intermedios?”</em>.</li>
+</ul>
+</div>
+<div class="fragment">
+<ul>
+<li>ACF de AR(p): decae exponencialmente.</li>
+<li>PACF de AR(p): <strong>se corta a partir de <span class="math inline">\(k = p\)</span></strong>.</li>
+</ul>
+</div>
+<div class="fragment">
+<p><strong>Uso clásico (Box-Jenkins):</strong> identificar el orden <span class="math inline">\(p\)</span> de un AR mirando dónde la PACF “cae” dentro de los intervalos de confianza.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>PACF — Genil</h2>
+<div id="cell-fig-pacf" class="cell" data-execution_count="17">
+<div class="cell-output cell-output-display">
+<div id="fig-pacf" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-pacf-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-pacf-output-1.png" width="852" height="330">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pacf-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;12: PACF del caudal diario (2010–2020)
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>PACF significativa en lags 1-3 ⇒ AR(2) o AR(3) razonable como primer modelo.</p>
+</section>
+<section class="slide level2">
+<h2>Test de Ljung-Box</h2>
+<p>La ACF mira un lag a la vez. <strong>Ljung-Box</strong> (1978) hace un <strong>test conjunto</strong> sobre los primeros <span class="math inline">\(h\)</span> lags:</p>
+<p><span class="math display">\[
+Q_{LB} = T(T+2) \sum_{k=1}^{h} \frac{\hat{\rho}(k)^2}{T - k} \;\sim\; \chi^2_{h}
+\]</span></p>
+<p><span class="math inline">\(H_0\)</span>: <span class="math inline">\(\rho(1) = \ldots = \rho(h) = 0\)</span> (ruido blanco). Rechazar (<span class="math inline">\(p&lt;0.05\)</span>) ⇒ queda estructura sin capturar.</p>
+<div class="fragment">
+<div id="ljung-box" class="cell" data-execution_count="18">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href=""></a><span class="im">from</span> statsmodels.stats.diagnostic <span class="im">import</span> acorr_ljungbox</span>
+<span id="cb11-2"><a href=""></a>serie <span class="op">=</span> CAUDAL.loc[<span class="st">"2010"</span>:<span class="st">"2020"</span>].dropna()</span>
+<span id="cb11-3"><a href=""></a><span class="bu">print</span>(acorr_ljungbox(serie, lags<span class="op">=</span>[<span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">30</span>], return_df<span class="op">=</span><span class="va">True</span>).<span class="bu">round</span>(<span class="dv">4</span>))</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       lb_stat  lb_pvalue
+10  24094.7037        0.0
+20  35996.5413        0.0
+30  41585.0960        0.0</code></pre>
+</div>
+</div>
+</div>
+<div class="fragment">
+<p><strong>Se aplica sobre:</strong> serie original o residuos (STL, ARIMA).</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Correlación cruzada (CCF)</h2>
+<p>La <strong>CCF</strong> mide la correlación entre dos series en distintos lags:</p>
+<p><span class="math display">\[
+\rho_{xy}(k) = \frac{\mathrm{Cov}(x_t, y_{t+k})}{\sigma_x \sigma_y}
+\]</span></p>
+<div class="fragment">
+<p>En hidrología, el ejemplo canónico:</p>
+<ul>
+<li><span class="math inline">\(x_t\)</span> = lluvia, <span class="math inline">\(y_t\)</span> = caudal.</li>
+<li>Buscamos el lag <span class="math inline">\(k^*\)</span> donde <span class="math inline">\(|\rho_{xy}(k)|\)</span> es máximo ⇒ es el <strong>tiempo de respuesta</strong> <span class="math inline">\(\tau\)</span> que vimos en el hidrograma, ahora estimado a partir de los datos.</li>
+</ul>
+</div>
+</section>
+<section class="slide level2">
+<h2>CCF — lluvia mensual Iznájar vs caudal Genil</h2>
+<div id="cell-fig-ccf" class="cell" data-execution_count="19">
+<div class="cell-output cell-output-display">
+<div id="fig-ccf" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-ccf-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-ccf-output-1.png" width="849" height="254">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ccf-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;13: CCF lluvia(t) → caudal(t+k), agregado mensual
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section class="slide level2">
+<h2>Lag plots</h2>
+<p>Inspección visual rápida: <span class="math inline">\(y_t\)</span> frente a <span class="math inline">\(y_{t-k}\)</span>.</p>
+<div id="cell-fig-lagplot" class="cell" data-execution_count="20">
+<div class="cell-output cell-output-display">
+<div id="fig-lagplot" class="quarto-float quarto-figure quarto-figure-center">
+<figure class="quarto-float quarto-float-fig">
+<div aria-describedby="fig-lagplot-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img data-src="sesion1_files/figure-revealjs/fig-lagplot-output-1.png" width="947" height="273">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-lagplot-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;14: Lag plots del caudal (k=1, 7, 30)
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="fragment">
+<p>A medida que <span class="math inline">\(k\)</span> crece, la nube se redondea → correlación más baja.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>De ACF/PACF a órdenes (p,q) — preview de Sesión 2</h2>
+<p>Box &amp; Jenkins (1970) proponen una receta visual para identificar modelos ARMA:</p>
+<table class="caption-top">
+<thead>
+<tr class="header">
+<th>Modelo</th>
+<th>ACF</th>
+<th>PACF</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>AR(p)</strong></td>
+<td>decae exponencial / sinusoidal</td>
+<td><strong>se corta</strong> en lag <span class="math inline">\(p\)</span></td>
+</tr>
+<tr class="even">
+<td><strong>MA(q)</strong></td>
+<td><strong>se corta</strong> en lag <span class="math inline">\(q\)</span></td>
+<td>decae exponencial</td>
+</tr>
+<tr class="odd">
+<td><strong>ARMA(p,q)</strong></td>
+<td>decae</td>
+<td>decae</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section class="slide level2">
+<h2>Receta práctica (Box-Jenkins)</h2>
+<ul>
+<li>PACF “se corta” en lag <span class="math inline">\(k\)</span> → punto de partida <strong>AR(<span class="math inline">\(k\)</span>)</strong>.</li>
+<li>ACF “se corta” en lag <span class="math inline">\(k\)</span> → punto de partida <strong>MA(<span class="math inline">\(k\)</span>)</strong>.</li>
+<li>Ninguna se corta limpia → prueba <strong>ARMA(1,1)</strong> y compara con AIC/BIC.</li>
+</ul>
+<blockquote>
+<p>Lo veremos en detalle mañana, cuando ajustemos ARIMA al caudal del Genil.</p>
+</blockquote>
+</section>
+<section class="slide level2 section-divider">
+<h2>Bloque 4 · Limpieza y agregación</h2>
+</section>
+<section class="slide level2">
+<h2>Outliers — ¿sensor o evento?</h2>
+<p><strong>Causa física</strong> (sensor): valores negativos en caudal o lluvia; “pulsos” aislados imposibles; estancamientos planos durante días.</p>
+<div class="fragment">
+<p><strong>Evento real</strong> (extremo): coincide con lluvia intensa; forma de <strong>hidrograma</strong> (subida rápida, recesión más lenta); coherente con estaciones próximas.</p>
+</div>
+<div class="fragment">
+<blockquote>
+<p><strong>Regla:</strong> nunca borrar sin investigar. Un valor “raro” puede ser exactamente lo que queremos predecir.</p>
+</blockquote>
+</div>
+</section>
+<section class="slide level2">
+<h2>Detección de outliers — métodos</h2>
+<ol type="1">
+<li><strong>IQR clásico</strong>: marcar <span class="math inline">\(|x - \mathrm{med}| &gt; 1.5 \cdot \mathrm{IQR}\)</span>.</li>
+<li><strong>Z-score robusto</strong> (mediana + MAD): <span class="math display">\[z_i = \frac{|x_i - \tilde{x}|}{1.4826 \cdot \mathrm{MAD}}, \quad z_i &gt; 3.5 \Rightarrow \text{outlier}\]</span></li>
+<li><strong>Hampel filter</strong>: z-score robusto <strong>en ventana móvil</strong>. Captura outliers locales.</li>
+</ol>
+<div class="fragment">
+<div id="outliers-mad" class="cell" data-execution_count="21">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href=""></a><span class="im">from</span> scipy.stats <span class="im">import</span> median_abs_deviation</span>
+<span id="cb13-2"><a href=""></a>x <span class="op">=</span> CAUDAL.dropna().values</span>
+<span id="cb13-3"><a href=""></a>mad <span class="op">=</span> median_abs_deviation(x, scale<span class="op">=</span><span class="st">"normal"</span>)</span>
+<span id="cb13-4"><a href=""></a>z <span class="op">=</span> (x <span class="op">-</span> np.median(x)) <span class="op">/</span> mad</span>
+<span id="cb13-5"><a href=""></a><span class="bu">print</span>(<span class="ss">f"% de outliers (|z| &gt; 3.5): </span><span class="sc">{</span>(np.<span class="bu">abs</span>(z) <span class="op">&gt;</span> <span class="fl">3.5</span>)<span class="sc">.</span>mean()<span class="op">*</span><span class="dv">100</span><span class="sc">:.2f}</span><span class="ss">%"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>% de outliers (|z| &gt; 3.5): 7.97%</code></pre>
+</div>
+</div>
+</div>
+</section>
+<section class="slide level2">
+<h2>Detección de outliers — comparativa</h2>
+<table class="caption-top">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Método</th>
+<th>Idea</th>
+<th>Ventaja</th>
+<th>Cuándo falla</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Reglas físicas</strong></td>
+<td>rangos válidos del dominio</td>
+<td>imprescindible primer filtro</td>
+<td>no detecta lo no anticipado</td>
+</tr>
+<tr class="even">
+<td><strong>IQR</strong> (<span class="math inline">\(1.5 \cdot\)</span>IQR)</td>
+<td>rangos cuartílicos</td>
+<td>simple, sin asumir normalidad</td>
+<td>global → marca eventos reales</td>
+</tr>
+<tr class="odd">
+<td><strong>Z-score robusto</strong></td>
+<td>mediana + MAD normalizado</td>
+<td>menos sensible a outliers fuertes</td>
+<td>sigue siendo global</td>
+</tr>
+<tr class="even">
+<td><strong>Hampel</strong></td>
+<td>z-score robusto <strong>en ventana móvil</strong></td>
+<td>distingue ruido sensor de eventos</td>
+<td>depende mucho de la ventana</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section class="slide level2">
+<h2>Outliers — recomendación práctica</h2>
+<ol type="1">
+<li>Reglas físicas (siempre primero).</li>
+<li>Hampel con ventana 30 días.</li>
+<li><strong>Marcar, no eliminar</strong>: añadir columna <code>flag</code> y dejar al modelador la decisión.</li>
+</ol>
+</section>
+<section class="slide level2">
+<h2>Datos faltantes en hidrología</h2>
+<p>Tres mecanismos clásicos (Rubin, 1976):</p>
+<ul>
+<li><strong>MCAR</strong>: faltan al azar. Ej. fallo de comunicación puntual.</li>
+<li><strong>MAR</strong>: faltan según otra variable observable. Ej. más NaN en invierno por nieve en sensor.</li>
+<li><strong>MNAR</strong>: faltan según el propio valor. Ej. sensor satura cuando <span class="math inline">\(Q &gt; Q_\max\)</span>.</li>
+</ul>
+<div class="fragment">
+<div id="tabla-gaps" class="cell" data-execution_count="22">
+<div class="cell-output cell-output-stdout">
+<pre><code>Total NaN: 25,393   #gaps: 18   gap mediano: 22 días   gap máx: 23284 días</code></pre>
+</div>
+</div>
+<p>En Pinos-Genil hay miles de NaN agrupados en gaps largos → no se imputan a ciegas.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Imputación — qué usar y cuándo</h2>
+<table class="caption-top">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Método</th>
+<th>Cuándo</th>
+<th>Cuándo NO</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>forward-fill</strong></td>
+<td>gaps muy cortos en variables lentas (piezometría)</td>
+<td>caudal, lluvia</td>
+</tr>
+<tr class="even">
+<td><strong>interpolación lineal</strong></td>
+<td>gaps cortos (1–3 días) en variables suaves</td>
+<td>gaps largos, picos</td>
+</tr>
+<tr class="odd">
+<td><strong>interpolación estacional</strong></td>
+<td>gaps medios en variables periódicas</td>
+<td>regímenes que cambian</td>
+</tr>
+<tr class="even">
+<td><strong>modelo</strong> (Pastas, kNN, regresión)</td>
+<td>gaps largos con covariables disponibles</td>
+<td>sin info auxiliar</td>
+</tr>
+<tr class="odd">
+<td><strong>dejar NaN</strong></td>
+<td>gaps largos sin info, <strong>piezometría</strong></td>
+<td>si el modelo no los soporta</td>
+</tr>
+</tbody>
+</table>
+<div class="fragment">
+<blockquote>
+<p><strong>Importante:</strong> rellenar es introducir <em>información sintética</em>. Documenta siempre qué imputaste y cómo.</p>
+</blockquote>
+</div>
+</section>
+<section class="slide level2">
+<h2>Agregación temporal: <code>resample</code></h2>
+<p>Cambiar la frecuencia con <code>pandas.DataFrame.resample(...)</code>. <strong>Regla distinta según variable:</strong></p>
+<table class="caption-top">
+<thead>
+<tr class="header">
+<th>Variable</th>
+<th>Regla de agregación</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Caudal, nivel piezométrico, temperatura</td>
+<td><code>.mean()</code></td>
+</tr>
+<tr class="even">
+<td>Lluvia, evapotranspiración</td>
+<td><code>.sum()</code></td>
+</tr>
+<tr class="odd">
+<td>Caudal máximo (eventos extremos)</td>
+<td><code>.max()</code></td>
+</tr>
+<tr class="even">
+<td>Disponibilidad / días con dato</td>
+<td><code>.count()</code></td>
+</tr>
+</tbody>
+</table>
+<div class="fragment">
+<div id="resample-demo" class="cell" data-execution_count="23">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode numberSource python number-lines code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href=""></a>q <span class="op">=</span> CAUDAL.loc[<span class="st">"2015"</span>:<span class="st">"2020"</span>]</span>
+<span id="cb16-2"><a href=""></a>q_mensual <span class="op">=</span> q.resample(<span class="st">"MS"</span>).mean()</span>
+<span id="cb16-3"><a href=""></a>q_max_mensual <span class="op">=</span> q.resample(<span class="st">"MS"</span>).<span class="bu">max</span>()</span>
+<span id="cb16-4"><a href=""></a><span class="bu">print</span>(<span class="ss">f"diario: </span><span class="sc">{</span><span class="bu">len</span>(q)<span class="sc">:,}</span><span class="ss"> obs   →   mensual: </span><span class="sc">{</span><span class="bu">len</span>(q_mensual)<span class="sc">}</span><span class="ss"> obs"</span>)</span>
+<span id="cb16-5"><a href=""></a><span class="bu">print</span>(<span class="ss">f"caudal medio mensual:  </span><span class="sc">{</span>q_mensual<span class="sc">.</span>mean()<span class="sc">:.2f}</span><span class="ss"> m³/s"</span>)</span>
+<span id="cb16-6"><a href=""></a><span class="bu">print</span>(<span class="ss">f"caudal máx mensual medio: </span><span class="sc">{</span>q_max_mensual<span class="sc">.</span>mean()<span class="sc">:.2f}</span><span class="ss"> m³/s"</span>)</span></code></pre></div><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>diario: 2,192 obs   →   mensual: 72 obs
+caudal medio mensual:  0.85 m³/s
+caudal máx mensual medio: 1.24 m³/s</code></pre>
+</div>
+</div>
+</div>
+</section>
+<section class="slide level2">
+<h2>Buenas prácticas — qué documentar</h2>
+<p>Para que tu análisis sea <strong>reproducible y auditable</strong>:</p>
+<ol type="1">
+<li><strong>Fuente y versión</strong>: URL, fecha de descarga, versión del Anuario / SAIH.</li>
+<li><strong>Reglas físicas</strong> aplicadas: rangos válidos por variable.</li>
+<li><strong>Outliers</strong>: lista (timestamp + método + decisión).</li>
+<li><strong>Imputaciones</strong>: rangos + método + justificación.</li>
+<li><strong>Agregaciones</strong>: regla por variable (<code>sum</code> lluvia, <code>mean</code> caudal).</li>
+<li><strong>Periodo de validez</strong>: dónde la serie es fiable.</li>
+</ol>
+<div class="fragment">
+<p><strong>Truco:</strong> una columna <code>flag</code> (<code>raw</code>, <code>corregido</code>, <code>imputado</code>) ahorra reuniones.</p>
+</div>
+</section>
+<section class="slide level2">
+<h2>Resumen de la sesión</h2>
+<ul>
+<li>Series temporales = observaciones dependientes en el tiempo.</li>
+<li>Antes de modelar: <strong>mirar la serie</strong>, descomponerla (STL), tests de estacionariedad, ACF/PACF.</li>
+<li>En hidrología, <strong>outliers ≠ errores</strong>: investiga, no borres.</li>
+<li>Faltantes: la regla práctica es <strong>no rellenar lo que no debes</strong>.</li>
+<li>Agrega con la regla apropiada para la variable.</li>
+</ul>
+<div class="fragment">
+<p><strong>Siguiente paso:</strong> notebooks 01-03 en <code>notebooks/sesion1/</code>.</p>
+</div>
+</section>
+<section class="slide level2 section-divider">
+<h2>¡Gracias!</h2>
+<p>Dudas y debate</p>
+
+</section>
+    </div>
+  <div class="quarto-auto-generated-content" style="display: none;">
+<div class="footer footer-default">
+<p>Curso de Series Temporales con Python</p>
+</div>
+</div></div>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script>
+  <script src="sesion1_files/libs/revealjs/dist/reveal.js"></script>
+  <!-- reveal.js plugins -->
+  <script src="sesion1_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.js"></script>
+  <script src="sesion1_files/libs/revealjs/plugin/pdf-export/pdfexport.js"></script>
+  <script src="sesion1_files/libs/revealjs/plugin/reveal-menu/menu.js"></script>
+  <script src="sesion1_files/libs/revealjs/plugin/reveal-menu/quarto-menu.js"></script>
+  <script src="sesion1_files/libs/revealjs/plugin/quarto-support/support.js"></script>
+  
+
+  <script src="sesion1_files/libs/revealjs/plugin/notes/notes.js"></script>
+  <script src="sesion1_files/libs/revealjs/plugin/search/search.js"></script>
+  <script src="sesion1_files/libs/revealjs/plugin/zoom/zoom.js"></script>
+  <script src="sesion1_files/libs/revealjs/plugin/math/math.js"></script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script>
+
+  <script>
+
+      // Full list of configuration options available at:
+      // https://revealjs.com/config/
+      Reveal.initialize({
+'controlsAuto': true,
+'previewLinksAuto': false,
+'pdfSeparateFragments': false,
+'autoAnimateEasing': "ease",
+'autoAnimateDuration': 1,
+'autoAnimateUnmatched': true,
+'jumpToSlide': true,
+'menu': {"side":"left","useTextContentForMissingTitles":true,"markers":false,"loadIcons":false,"custom":[{"title":"Tools","icon":"<i class=\"fas fa-gear\"></i>","content":"<ul class=\"slide-menu-items\">\n<li class=\"slide-tool-item active\" data-item=\"0\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.fullscreen(event)\"><kbd>f</kbd> Fullscreen</a></li>\n<li class=\"slide-tool-item\" data-item=\"1\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.speakerMode(event)\"><kbd>s</kbd> Speaker View</a></li>\n<li class=\"slide-tool-item\" data-item=\"2\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.overview(event)\"><kbd>o</kbd> Slide Overview</a></li>\n<li class=\"slide-tool-item\" data-item=\"3\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.togglePdfExport(event)\"><kbd>e</kbd> PDF Export Mode</a></li>\n<li class=\"slide-tool-item\" data-item=\"4\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.toggleScrollView(event)\"><kbd>r</kbd> Scroll View Mode</a></li>\n<li class=\"slide-tool-item\" data-item=\"5\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.keyboardHelp(event)\"><kbd>?</kbd> Keyboard Help</a></li>\n</ul>"}],"openButton":true},
+'smaller': false,
+ 
+        // Display controls in the bottom right corner
+        controls: false,
+
+        // Help the user learn the controls by providing hints, for example by
+        // bouncing the down arrow when they first encounter a vertical slide
+        controlsTutorial: false,
+
+        // Determines where controls appear, "edges" or "bottom-right"
+        controlsLayout: 'edges',
+
+        // Visibility rule for backwards navigation arrows; "faded", "hidden"
+        // or "visible"
+        controlsBackArrows: 'faded',
+
+        // Display a presentation progress bar
+        progress: true,
+
+        // Display the page number of the current slide
+        slideNumber: 'c/t',
+
+        // 'all', 'print', or 'speaker'
+        showSlideNumber: 'all',
+
+        // Add the current slide number to the URL hash so that reloading the
+        // page/copying the URL will return you to the same slide
+        hash: true,
+
+        // Start with 1 for the hash rather than 0
+        hashOneBasedIndex: false,
+
+        // Flags if we should monitor the hash and change slides accordingly
+        respondToHashChanges: true,
+
+        // Push each slide change to the browser history
+        history: true,
+
+        // Enable keyboard shortcuts for navigation
+        keyboard: true,
+
+        // Enable the slide overview mode
+        overview: true,
+
+        // Disables the default reveal.js slide layout (scaling and centering)
+        // so that you can use custom CSS layout
+        disableLayout: false,
+
+        // Vertical centering of slides
+        center: false,
+
+        // Enables touch navigation on devices with touch input
+        touch: true,
+
+        // Loop the presentation
+        loop: false,
+
+        // Change the presentation direction to be RTL
+        rtl: false,
+
+        // see https://revealjs.com/vertical-slides/#navigation-mode
+        navigationMode: 'linear',
+
+        // Randomizes the order of slides each time the presentation loads
+        shuffle: false,
+
+        // Turns fragments on and off globally
+        fragments: true,
+
+        // Flags whether to include the current fragment in the URL,
+        // so that reloading brings you to the same fragment position
+        fragmentInURL: false,
+
+        // Flags if the presentation is running in an embedded mode,
+        // i.e. contained within a limited portion of the screen
+        embedded: false,
+
+        // Flags if we should show a help overlay when the questionmark
+        // key is pressed
+        help: true,
+
+        // Flags if it should be possible to pause the presentation (blackout)
+        pause: true,
+
+        // Flags if speaker notes should be visible to all viewers
+        showNotes: false,
+
+        // Global override for autoplaying embedded media (null/true/false)
+        autoPlayMedia: null,
+
+        // Global override for preloading lazy-loaded iframes (null/true/false)
+        preloadIframes: null,
+
+        // Number of milliseconds between automatically proceeding to the
+        // next slide, disabled when set to 0, this value can be overwritten
+        // by using a data-autoslide attribute on your slides
+        autoSlide: 0,
+
+        // Stop auto-sliding after user input
+        autoSlideStoppable: true,
+
+        // Use this method for navigation when auto-sliding
+        autoSlideMethod: null,
+
+        // Specify the average time in seconds that you think you will spend
+        // presenting each slide. This is used to show a pacing timer in the
+        // speaker view
+        defaultTiming: null,
+
+        // Enable slide navigation via mouse wheel
+        mouseWheel: false,
+
+        // The display mode that will be used to show slides
+        display: 'block',
+
+        // Hide cursor if inactive
+        hideInactiveCursor: true,
+
+        // Time before the cursor is hidden (in ms)
+        hideCursorTime: 5000,
+
+        // Opens links in an iframe preview overlay
+        previewLinks: false,
+
+        // Transition style (none/fade/slide/convex/concave/zoom)
+        transition: 'fade',
+
+        // Transition speed (default/fast/slow)
+        transitionSpeed: 'fast',
+
+        // Transition style for full page slide backgrounds
+        // (none/fade/slide/convex/concave/zoom)
+        backgroundTransition: 'none',
+
+        // Number of slides away from the current that are visible
+        viewDistance: 3,
+
+        // Number of slides away from the current that are visible on mobile
+        // devices. It is advisable to set this to a lower number than
+        // viewDistance in order to save resources.
+        mobileViewDistance: 2,
+
+        // The "normal" size of the presentation, aspect ratio will be preserved
+        // when the presentation is scaled to fit different resolutions. Can be
+        // specified using percentage units.
+        width: 1280,
+
+        height: 800,
+
+        // Factor of the display size that should remain empty around the content
+        margin: 0.1,
+
+        math: {
+          mathjax: 'https://cdn.jsdelivr.net/npm/mathjax@2.7.9/MathJax.js',
+          config: 'TeX-AMS_HTML-full',
+          tex2jax: {
+            inlineMath: [['\\(','\\)']],
+            displayMath: [['\\[','\\]']],
+            balanceBraces: true,
+            processEscapes: false,
+            processRefs: true,
+            processEnvironments: true,
+            preview: 'TeX',
+            skipTags: ['script','noscript','style','textarea','pre','code'],
+            ignoreClass: 'tex2jax_ignore',
+            processClass: 'tex2jax_process'
+          },
+        },
+
+        // reveal.js plugins
+        plugins: [QuartoLineHighlight, PdfExport, RevealMenu, QuartoSupport,
+
+          RevealMath,
+          RevealNotes,
+          RevealSearch,
+          RevealZoom
+        ]
+      });
+    </script>
+    <script id="quarto-html-after-body" type="application/javascript">
+      window.document.addEventListener("DOMContentLoaded", function (event) {
+        const tabsets =  window.document.querySelectorAll(".panel-tabset-tabby")
+        tabsets.forEach(function(tabset) {
+          const tabby = new Tabby('#' + tabset.id);
+        });
+        const isCodeAnnotation = (el) => {
+          for (const clz of el.classList) {
+            if (clz.startsWith('code-annotation-')) {                     
+              return true;
+            }
+          }
+          return false;
+        }
+        const onCopySuccess = function(e) {
+          // button target
+          const button = e.trigger;
+          // don't keep focus
+          button.blur();
+          // flash "checked"
+          button.classList.add('code-copy-button-checked');
+          var currentTitle = button.getAttribute("title");
+          button.setAttribute("title", "Copiado");
+          let tooltip;
+          if (window.bootstrap) {
+            button.setAttribute("data-bs-toggle", "tooltip");
+            button.setAttribute("data-bs-placement", "left");
+            button.setAttribute("data-bs-title", "Copiado");
+            tooltip = new bootstrap.Tooltip(button, 
+              { trigger: "manual", 
+                customClass: "code-copy-button-tooltip",
+                offset: [0, -8]});
+            tooltip.show();    
+          }
+          setTimeout(function() {
+            if (tooltip) {
+              tooltip.hide();
+              button.removeAttribute("data-bs-title");
+              button.removeAttribute("data-bs-toggle");
+              button.removeAttribute("data-bs-placement");
+            }
+            button.setAttribute("title", currentTitle);
+            button.classList.remove('code-copy-button-checked');
+          }, 1000);
+          // clear code selection
+          e.clearSelection();
+        }
+        const getTextToCopy = function(trigger) {
+          const outerScaffold = trigger.parentElement.cloneNode(true);
+          const codeEl = outerScaffold.querySelector('code');
+          for (const childEl of codeEl.children) {
+            if (isCodeAnnotation(childEl)) {
+              childEl.remove();
+            }
+          }
+          return codeEl.innerText;
+        }
+        const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+          text: getTextToCopy
+        });
+        clipboard.on('success', onCopySuccess);
+        if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+          const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+            text: getTextToCopy,
+            container: window.document.getElementById('quarto-embedded-source-code-modal')
+          });
+          clipboardModal.on('success', onCopySuccess);
+        }
+          var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+          var mailtoRegex = new RegExp(/^mailto:/);
+            var filterRegex = new RegExp('/' + window.location.host + '/');
+          var isInternal = (href) => {
+              return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+          }
+          // Inspect non-navigation links and adorn them if external
+         var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+          for (var i=0; i<links.length; i++) {
+            const link = links[i];
+            if (!isInternal(link.href)) {
+              // undo the damage that might have been done by quarto-nav.js in the case of
+              // links that we want to consider external
+              if (link.dataset.originalHref !== undefined) {
+                link.href = link.dataset.originalHref;
+              }
+            }
+          }
+        function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+          const config = {
+            allowHTML: true,
+            maxWidth: 500,
+            delay: 100,
+            arrow: false,
+            appendTo: function(el) {
+                return el.closest('section.slide') || el.parentElement;
+            },
+            interactive: true,
+            interactiveBorder: 10,
+            theme: 'light-border',
+            placement: 'bottom-start',
+          };
+          if (contentFn) {
+            config.content = contentFn;
+          }
+          if (onTriggerFn) {
+            config.onTrigger = onTriggerFn;
+          }
+          if (onUntriggerFn) {
+            config.onUntrigger = onUntriggerFn;
+          }
+            config['offset'] = [0,0];
+            config['maxWidth'] = 700;
+          window.tippy(el, config); 
+        }
+        const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+        for (var i=0; i<noterefs.length; i++) {
+          const ref = noterefs[i];
+          tippyHover(ref, function() {
+            // use id or data attribute instead here
+            let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+            try { href = new URL(href).hash; } catch {}
+            const id = href.replace(/^#\/?/, "");
+            const note = window.document.getElementById(id);
+            if (note) {
+              return note.innerHTML;
+            } else {
+              return "";
+            }
+          });
+        }
+        const findCites = (el) => {
+          const parentEl = el.parentElement;
+          if (parentEl) {
+            const cites = parentEl.dataset.cites;
+            if (cites) {
+              return {
+                el,
+                cites: cites.split(' ')
+              };
+            } else {
+              return findCites(el.parentElement)
+            }
+          } else {
+            return undefined;
+          }
+        };
+        var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+        for (var i=0; i<bibliorefs.length; i++) {
+          const ref = bibliorefs[i];
+          const citeInfo = findCites(ref);
+          if (citeInfo) {
+            tippyHover(citeInfo.el, function() {
+              var popup = window.document.createElement('div');
+              citeInfo.cites.forEach(function(cite) {
+                var citeDiv = window.document.createElement('div');
+                citeDiv.classList.add('hanging-indent');
+                citeDiv.classList.add('csl-entry');
+                var biblioDiv = window.document.getElementById('ref-' + cite);
+                if (biblioDiv) {
+                  citeDiv.innerHTML = biblioDiv.innerHTML;
+                }
+                popup.appendChild(citeDiv);
+              });
+              return popup.innerHTML;
+            });
+          }
+        }
+      });
+      </script>
+    
+
+</body></html>

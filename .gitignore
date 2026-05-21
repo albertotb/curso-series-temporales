@@ -26,6 +26,9 @@ env/
 **/*_files/
 **/*.html
 !**/index.html
+!slides/**/*.html
+!slides/**/*_files/
+!slides/**/*_files/**
 
 # Sistema operativo
 .DS_Store
