@@ -35,23 +35,6 @@ from cst import datos as ud
 CAUDAL = ud.cargar_caudal_genil().loc["1995":"2020"]
 ```
 
-## Bienvenida {.section-divider}
-
-Última sesión del curso. **Formato mixto teoría-código en vivo.**
-
-- **1 h** de teoría: redes neuronales para series temporales.
-- **2 h** de práctica guiada en 3 notebooks.
-- **1 h 30 min** de proyecto final autónomo.
-
-. . .
-
-Al final habrás:
-
-- Entrenado tu primera LSTM sobre datos hidrológicos reales.
-- Comparado estadístico vs ML vs DL con el mismo split.
-- Producido un análisis de errores por régimen.
-
----
 
 ## Agenda
 
@@ -69,30 +52,26 @@ Al final habrás:
 
 ## ¿Por qué DL en series temporales?
 
-Las series temporales son donde el DL **lleva más años conviviendo** con métodos clásicos y la respuesta no es obvia:
+En series temporales Deep Learning (DL) **lleva años conviviendo** con métodos clásicos. En general:
 
 . . .
 
-- **DL gana** cuando hay **mucho dato**, **no-linealidad**, **interacciones complejas** o **multivariate** (varias series + covariables).
+- **DL gana** cuando hay **muchos datos**, **no-linealidad**, **interacciones complejas** o **multivariate** (varias series + covariables).
 - **DL empata o pierde** cuando hay poco dato (< 10 años diarios), señal lineal clara, o estacionalidad dominante.
 - En **hidrología**, el LSTM ha mostrado mejoras consistentes en CAMELS-US (Kratzert et al., 2019) — pero a costa de complejidad operativa.
-
-. . .
-
-> **Mensaje del curso:** dominar los clásicos primero. DL como herramienta cuando los clásicos saturan.
 
 ---
 
 ## El bloque básico — la neurona
 
-Una neurona = **regresión lineal con un "aplastamiento" no lineal al final**:
+Una neurona = **regresión lineal con una función no lineal al final**:
 
 $$
 y = \sigma(w_1 x_1 + w_2 x_2 + \ldots + w_n x_n + b) = \sigma(\mathbf{w}^\top \mathbf{x} + b)
 $$
 
-- $\mathbf{w}, b$ son **parámetros aprendibles** (igual que los $\beta$ de la regresión).
-- $\sigma$ es la **función de activación** — la única razón por la que apilar capas sirve para algo.
+- $\mathbf{w}, b$ son **parámetros** (igual que los $\beta$ de la regresión).
+- $\sigma$ es la **función de activación** — la única razón por la que añadir capas aporta información.
 
 ```{python}
 #| label: neurona-y-activaciones
@@ -158,10 +137,6 @@ ax2.set_ylabel(r"$\sigma$(entrada)")
 plt.tight_layout()
 ```
 
-. . .
-
-> **Sin activación**, apilar capas equivale a una sola capa lineal — toda la red colapsa a una regresión lineal.
-
 ---
 
 ## De neurona a red — capas y entrenamiento
@@ -187,15 +162,11 @@ Apilar varias capas `Dense` = una **red profunda**. Cada capa transforma la repr
 
 Se itera sobre **mini-batches** durante muchas **epochs** hasta que la pérdida deja de bajar.
 
-. . .
-
-> **Adam** = descenso por gradiente con momentum + tasa adaptativa. Es el optimizer por defecto y casi nunca te equivocas eligiéndolo.
-
 ---
 
 ## El camino más corto al DL — MLP
 
-Un **perceptrón multicapa** sobre la misma matriz $X$ (lags + rolling + exógenas) que usaste con XGBoost.
+Un **perceptrón multicapa** sobre la misma matriz $X$ (lags + rolling + exógenas) que se usa en ML.
 
 ```python
 from keras.models import Sequential
@@ -316,24 +287,20 @@ ax.legend()
 plt.tight_layout()
 ```
 
-. . .
-
-> La LSTM soluciona esto con una "autopista" para el gradiente: la celda $c_t$ tiene un flujo **aditivo** que evita el aplastamiento multiplicativo.
-
 ---
 
 ## LSTM — gates para recordar a largo plazo
 
 Hochreiter & Schmidhuber (1997). Tres puertas controlan qué información fluye:
 
-- **Forget gate** $f_t$: ¿qué del pasado olvido?
-- **Input gate** $i_t$: ¿qué de lo nuevo retengo?
-- **Output gate** $o_t$: ¿qué del estado expongo?
+- **Forget gate** $f_t$: ¿qué olvido del pasado?
+- **Input gate** $i_t$: ¿qué retengo de lo nuevo?
+- **Output gate** $o_t$: ¿cuanto expongo del output?
 
 ```{python}
 #| label: lstm-cell
 #| echo: false
-#| fig-cap: "Celda LSTM. La línea verde superior ($c_{t-1} \\to c_t$) es la 'autopista' por la que fluye el gradiente sin aplastarse."
+#| fig-cap: "Celda LSTM. La línea verde superior ($c_{t-1} \\to c_t$) representa el gradiente."
 import matplotlib.patches as mpatches
 
 fig, ax = plt.subplots(figsize=(11, 3.6))
@@ -438,13 +405,12 @@ $$
 
 ## LSTM en acción — recordar un evento de lluvia
 
-Dataset de juguete: la lluvia provoca una respuesta en el caudal **5 pasos más tarde**. Entrenamos una LSTM diminuta (4 unidades) y miramos las gates en acción.
+Dataset de juguete: la lluvia provoca una respuesta en el caudal **5 pasos más tarde**. Entrenamos una LSTM pequeña (4 unidades) y miramos las gates en acción.
 
 ```{python}
 #| label: lstm-gates-toy
 #| echo: false
 #| cache: true
-#| fig-cap: "Al recibir el pulso de lluvia (línea azul vertical), input gate dispara, una unidad de forget baja (resetea su memoria para incorporar el evento) y output gate ajusta cuánto se expone."
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import warnings
@@ -536,7 +502,7 @@ plt.tight_layout()
 
 . . .
 
-> **Las gates son tres regresiones logísticas** que aprenden cuándo abrir/cerrar las válvulas del estado interno. Notebook `00_lstm_intuicion_lluvia.ipynb` reproduce esto en 30 segundos.
+> **Las puertas son tres regresiones logísticas** que aprenden cuándo abrir/cerrar las válvulas del estado interno.
 
 ---
 
@@ -559,67 +525,6 @@ Cho et al. (2014). Une input + forget en una sola **update gate**; combina $c$ y
 
 ---
 
-## 1D-CNN y TCN (mención)
-
-**1D-CNN:** convolución sobre la dimensión temporal. Aprende **patrones locales** (formas de hidrograma). Rápido, paralelo.
-
-. . .
-
-**TCN** (Temporal Convolutional Network, Bai et al. 2018):
-
-- Convoluciones **causales** (no ven el futuro).
-- **Dilated** → campo receptivo crece exponencialmente con pocas capas.
-- Suele igualar a LSTM en muchas tareas con mejor paralelismo.
-
----
-
-## TCN — convoluciones dilatadas causales
-
-::: {.model-flow}
-::: {.model-stack}
-::: {.model-box}
-$x_{t-7}$
-:::
-::: {.model-box}
-$x_{t-6}$
-:::
-::: {.model-box}
-$x_{t-5}$
-:::
-::: {.model-box}
-$x_{t-4}$
-:::
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-**Conv** $d=1$
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-**Conv** $d=2$
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-**Conv** $d=4$
-:::
-::: {.model-arrow}
-→
-:::
-::: {.model-box}
-$\hat y_t$
-:::
-:::
-
-> **Fuera del scope** del curso (preferimos LSTM por su valor pedagógico). `keras-tcn` si quieres explorar.
-
----
-
 ## Transformers para series (mención)
 
 Vaswani et al. (2017) cambió NLP. En series temporales llegaron después:
@@ -636,10 +541,6 @@ Vaswani et al. (2017) cambió NLP. En series temporales llegaron después:
 - Mejoras marginales sobre LSTM en CAMELS y similares.
 - Coste computacional alto.
 - **`neuralforecast`** (Nixtla) los expone con API uniforme.
-
-. . .
-
-> Conoce que existen. Empieza con LSTM. Salta a Transformers cuando puedas justificar el coste.
 
 ---
 
@@ -785,7 +686,7 @@ print(f'X shape: {X.shape}   y shape: {y.shape}')
 
 . . .
 
-**Atajo de Keras:** `keras.utils.timeseries_dataset_from_array(...)` hace lo mismo con menos código.
+**En Keras:** `keras.utils.timeseries_dataset_from_array(...)` hace lo mismo con menos código.
 
 ---
 
@@ -833,7 +734,7 @@ model.fit(X_train, y_train, validation_split=0.1,
 
 . . .
 
-**Pitfall: `validation_split`** baraja por defecto. Para series usar **`validation_data=(X_val, y_val)`** con val temporal.
+**Pitfall: `validation_split`** desordena por defecto. Para series usar **`validation_data=(X_val, y_val)`** con val temporal.
 
 ---
 
@@ -842,14 +743,14 @@ model.fit(X_train, y_train, validation_split=0.1,
 | Técnica | Función | Cuándo usar |
 |---|---|---|
 | `Dropout(p)` | apaga $p$ % de neuronas | siempre, en datasets pequeños |
-| `recurrent_dropout` | dropout en gates | si el train sigue overfit |
+| `recurrent_dropout` | dropout en gates | si el train sigue sobreajustando |
 | `kernel_regularizer=l2(λ)` | weight decay | redes profundas |
 | `EarlyStopping` | detiene en plateau | siempre |
 | `BatchNormalization` | normaliza activaciones | redes muy profundas (raro en LSTM) |
 
 . . .
 
-**Regla:** empieza con `Dropout(0.2)` + `EarlyStopping(patience=10)`. Si todavía overfit, sube el dropout antes de quitar capacidad.
+**Regla:** empieza con `Dropout(0.2)` + `EarlyStopping(patience=10)`. Si todavía hay sobreajuste, sube el dropout antes de quitar capacidad.
 
 ---
 
@@ -924,10 +825,6 @@ model = Sequential([
 
 **¿Por qué no Direct (2 modelos independientes)?** El encoder $h_T$ codifica el **estado de la cuenca** — informativo para ambos horizontes. Direct entrenaría dos LSTMs separadas que tirarían esa representación compartida.
 
-. . .
-
-> **Con skforecast:** se entrena denso (`steps=30`) y luego `forecaster.predict(steps=[7, 30])` filtra a la inferencia. Para sparse MIMO _en entrenamiento_ hay que construir el modelo a mano.
-
 ---
 
 ## skforecast — `ForecasterRnn` para Keras
@@ -955,10 +852,6 @@ metric, preds = backtesting_forecaster_multiseries(
 
 **Aporta:** backtesting walk-forward, escalado automático, soporte multi-serie. **Estrategia interna:** siempre MIMO (one-shot) — no existe `ForecasterRnnRecursive`.
 
-. . .
-
-> Útil cuando ya tienes pipeline skforecast y quieres añadir un modelo neural sin reescribirlo.
-
 ---
 
 ## NeuralHydrology — el referente del DL hidrológico
@@ -980,48 +873,6 @@ target_variables: [QObs]
 dynamic_inputs: [precipitation, temperature]
 static_attributes: [area, slope_mean, ...]
 ```
-
-> Lo usamos como **referencia**, no como vehículo para enseñar DL. En el notebook 02 hay una demo de inferencia con un modelo pre-entrenado.
-
----
-
-## Mapa final del curso
-
-::: {.model-flow}
-::: {.model-stack}
-::: {.model-box}
-**Sesión 1** — Fundamentos · STL, ACF, limpieza
-:::
-::: {.model-arrow}
-↓
-:::
-::: {.model-box}
-**Sesión 2** — ARIMA, ETS · Prophet, Pastas
-:::
-::: {.model-arrow}
-↓
-:::
-::: {.model-box}
-**Sesión 3** — ML clásico · RF, XGBoost, SHAP
-:::
-::: {.model-arrow}
-↓
-:::
-::: {.model-box}
-**Sesión 4** — LSTM, GRU · NeuralHydrology
-:::
-::: {.model-arrow}
-↓
-:::
-::: {.model-box}
-**Proyecto final** — Comparación end-to-end
-:::
-:::
-:::
-
-. . .
-
-**Lo que te llevas:** un pipeline reproducible (carga → limpieza → modelado → evaluación) que puedes aplicar a CUALQUIER serie hidrológica.
 
 ---
 
